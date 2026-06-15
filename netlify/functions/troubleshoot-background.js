@@ -1,0 +1,145 @@
+// Background troubleshooting worker.
+//
+// Netlify runs any function whose filename ends in `-background` asynchronously:
+// it returns 202 immediately and may run up to 15 minutes. It can't return data
+// to the caller, so it writes its result into the et_troubleshoot_jobs row, which
+// the chat UI polls.
+//
+// Flow: the browser inserts a job row (status 'pending') and then POSTs { jobId }
+// here. We load the job, do the work, and update the row to 'done' or 'error'.
+//
+// Strategy (unchanged from the original synchronous version):
+//   1. Use the latest user message as the search query.
+//   2. Search repair logs (PRIORITIZED) and manual pages for this machine.
+//   3. Hand Claude the logs + manual text + image descriptions, with web_search
+//      enabled, and ask for a SHORT bulleted answer that leans on past repairs.
+//   4. Store the answer plus source chips and relevant manual-page / repair photos.
+const { admin, callClaude, textOf, sign } = require('./_shared');
+
+const SYSTEM = `You are a maintenance troubleshooting assistant for PMI Tape, a tape manufacturing plant. You help technicians fix factory equipment.
+
+RULES — follow exactly:
+- ALWAYS prioritize the PAST REPAIR LOGS provided. If a past repair matches the problem, lead with it: say what was wrong before and how it was fixed, and reference it (e.g. "Past repair from 3/14: …").
+- After the logs, use the MANUAL EXCERPTS, then general/web knowledge.
+- Keep it SHORT. A few bullet points only. Do not overwhelm the technician.
+- Each bullet is one concrete thing to check or do, most likely cause first.
+- Plain shop-floor language. No long preambles, no safety lectures unless a step is genuinely dangerous (then one short caution).
+- If you genuinely need one piece of info to narrow it down, ask a single short question instead of guessing.
+- Never invent part numbers, log dates, or manual pages. Only cite what you were given.`;
+
+async function runJob(sb, job) {
+  const { machineName, messages = [] } = job.payload || {};
+  const machineId = job.machine_id;
+
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  const query = (lastUser?.content || '').trim();
+  if (!query) throw new Error('No user question in payload');
+
+  // 1+2. Search repair logs (prioritized) and manual pages in parallel
+  const [logsRes, pagesRes] = await Promise.all([
+    sb.rpc('et_search_repair_logs', { p_machine_id: machineId, p_query: query, p_limit: 6 }),
+    sb.rpc('et_search_manual_pages', { p_machine_id: machineId, p_query: query, p_limit: 5 }),
+  ]);
+  const logs = logsRes.data || [];
+  const pages = pagesRes.data || [];
+
+  // 2. Build the context block
+  let context = '';
+  if (logs.length) {
+    context += '=== PAST REPAIR LOGS (prioritize these) ===\n';
+    logs.forEach((l, i) => {
+      const date = l.created_at ? new Date(l.created_at).toLocaleDateString() : 'unknown date';
+      context += `\n[LOG ${i + 1}] (${date}${l.technician ? ', by ' + l.technician : ''})\n`;
+      context += `Problem: ${l.problem}\n`;
+      if (l.solution) context += `Fix: ${l.solution}\n`;
+      if (l.details) context += `Details: ${l.details}\n`;
+    });
+    context += '\n';
+  } else {
+    context += '=== PAST REPAIR LOGS ===\n(none recorded yet for this machine)\n\n';
+  }
+  if (pages.length) {
+    context += '=== MANUAL EXCERPTS ===\n';
+    pages.forEach((p) => {
+      const body = (p.text_content || '').slice(0, 900);
+      const desc = p.ai_summary ? ` — ${p.ai_summary}` : '';
+      context += `\n[MANUAL "${p.manual_title}" p.${p.page_number}]${desc}\n${body}\n`;
+    });
+    context += '\n';
+  }
+
+  const convo = messages.map((m) => ({
+    role: m.role === 'assistant' ? 'assistant' : 'user',
+    content: m.content,
+  }));
+  while (convo.length && convo[0].role === 'assistant') convo.shift();
+  const lastIdx = convo.map((m) => m.role).lastIndexOf('user');
+  convo[lastIdx] = {
+    role: 'user',
+    content: `${context}=== TECHNICIAN'S MESSAGE ===\nMachine: ${machineName}\n${query}\n\nGive a short, bulleted answer. Lead with any matching past repair.`,
+  };
+
+  // 3. Ask Claude, with web search available
+  const data = await callClaude({
+    model: 'claude-sonnet-4-6',
+    system: SYSTEM,
+    messages: convo,
+    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
+    max_tokens: 1200,
+  });
+  const answer = textOf(data);
+
+  // 4. Assemble source chips + thumbnail images
+  const sources = [];
+  const images = [];
+  for (const l of logs.slice(0, 3)) {
+    const date = l.created_at ? new Date(l.created_at).toLocaleDateString() : '';
+    sources.push({ type: 'log', label: `Repair log · ${date}` });
+    const photos = [...(l.problem_photos || []), ...(l.solution_photos || [])];
+    for (const ph of photos.slice(0, 2)) {
+      const url = await sign(sb, 'repair-photos', ph.path);
+      if (url) images.push({ bucket: 'repair-photos', url });
+    }
+  }
+  for (const p of pages.slice(0, 3)) {
+    sources.push({ type: 'manual', label: `${p.manual_title} · p.${p.page_number}` });
+    if (p.image_path) {
+      const url = await sign(sb, 'manual-pages', p.image_path);
+      if (url) images.push({ bucket: 'manual-pages', url });
+    }
+  }
+  const seen = new Set();
+  const uniqueImages = images.filter((im) => {
+    if (!im.url || seen.has(im.url)) return false;
+    seen.add(im.url); return true;
+  }).slice(0, 4);
+
+  return { answer, sources, images: uniqueImages };
+}
+
+exports.handler = async (event) => {
+  let jobId;
+  try { jobId = JSON.parse(event.body || '{}').jobId; }
+  catch { return { statusCode: 400, body: 'Bad JSON' }; }
+  if (!jobId) return { statusCode: 400, body: 'Missing jobId' };
+
+  const sb = admin();
+  const { data: job, error } = await sb
+    .from('et_troubleshoot_jobs').select('*').eq('id', jobId).single();
+  if (error || !job) return { statusCode: 404, body: 'Job not found' };
+
+  await sb.from('et_troubleshoot_jobs')
+    .update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', jobId);
+
+  try {
+    const result = await runJob(sb, job);
+    await sb.from('et_troubleshoot_jobs')
+      .update({ status: 'done', result, updated_at: new Date().toISOString() }).eq('id', jobId);
+  } catch (e) {
+    await sb.from('et_troubleshoot_jobs')
+      .update({ status: 'error', error: String(e.message || e), updated_at: new Date().toISOString() })
+      .eq('id', jobId);
+  }
+  // Background functions return 202; body is ignored.
+  return { statusCode: 202, body: 'processing' };
+};
