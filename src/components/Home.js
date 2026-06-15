@@ -1,14 +1,14 @@
 import React from 'react';
-import { IconChat, IconWrench, IconBook } from '../lib/icons';
+import { IconChat, IconWrench } from '../lib/icons';
 
 export default function Home({ onChoose }) {
   return (
     <div className="home-wrap">
       <div className="home-eyebrow">PMI Tape · Maintenance</div>
-      <h1 className="home-title">Equipment Help</h1>
-      <p className="home-sub">Get troubleshooting help, log a repair, or add a machine manual.</p>
+      <h1 className="home-title">Equipment Troubleshooting</h1>
+      <p className="home-sub">Get troubleshooting help or log a repair.</p>
 
-      <div className="home-cards home-cards-3">
+      <div className="home-cards">
         <button className="home-card" onClick={() => onChoose('troubleshoot')}>
           <span className="home-card-icon"><IconChat /></span>
           <span className="home-card-title">Help me with troubleshooting</span>
@@ -26,14 +26,11 @@ export default function Home({ onChoose }) {
             time something similar happens.
           </span>
         </button>
+      </div>
 
-        <button className="home-card" onClick={() => onChoose('manual')}>
-          <span className="home-card-icon"><IconBook /></span>
-          <span className="home-card-title">Add a manual</span>
-          <span className="home-card-desc">
-            Upload a machine's PDF manual. Its pages and diagrams become searchable
-            for troubleshooting.
-          </span>
+      <div className="home-footer-link">
+        <button className="text-link" onClick={() => onChoose('edit')}>
+          Edit machines
         </button>
       </div>
     </div>

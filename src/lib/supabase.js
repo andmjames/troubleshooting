@@ -100,6 +100,69 @@ export async function fetchManualsForMachine(machineId) {
   return data || [];
 }
 
+// Count manuals per machine → { [machineId]: count } for the Edit Machines list.
+export async function fetchManualCounts() {
+  const { data, error } = await supabase.from('et_manuals').select('machine_id');
+  if (error) return {};
+  const counts = {};
+  for (const r of data || []) counts[r.machine_id] = (counts[r.machine_id] || 0) + 1;
+  return counts;
+}
+
+// Add a machine. Name is required and must be unique.
+export async function addMachine({ name, manufacturer, model_number }) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) throw new Error('Machine name is required');
+
+  // Place the new machine at the end of the list.
+  const { data: maxRow } = await supabase
+    .from('et_machines')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const sort_order = (maxRow?.sort_order || 0) + 10;
+
+  const { data, error } = await supabase
+    .from('et_machines')
+    .insert({
+      name: trimmed,
+      manufacturer: (manufacturer || '').trim() || null,
+      model_number: (model_number || '').trim() || null,
+      sort_order,
+    })
+    .select()
+    .single();
+  if (error) {
+    if (error.code === '23505') throw new Error(`A machine named "${trimmed}" already exists`);
+    throw error;
+  }
+  return data;
+}
+
+// Remove a machine. Cascades to its manuals, manual pages, and repair logs.
+// Storage cleanup is best-effort and never blocks the delete.
+export async function removeMachine(machineId) {
+  try {
+    const manuals = await fetchManualsForMachine(machineId);
+    for (const m of manuals) {
+      const { data: pages } = await supabase.storage.from('manual-pages').list(String(m.id), { limit: 1000 });
+      if (pages && pages.length) {
+        await supabase.storage.from('manual-pages').remove(pages.map((f) => `${m.id}/${f.name}`));
+      }
+    }
+    const { data: pdfs } = await supabase.storage.from('manuals').list(String(machineId), { limit: 1000 });
+    if (pdfs && pdfs.length) {
+      await supabase.storage.from('manuals').remove(pdfs.map((f) => `${machineId}/${f.name}`));
+    }
+  } catch {
+    /* ignore storage cleanup errors — the DB delete below is what matters */
+  }
+
+  const { error } = await supabase.from('et_machines').delete().eq('id', machineId);
+  if (error) throw error;
+}
+
 // ── Manual upload (employee-facing) ──
 // Uploads the PDF straight to Storage, creates the manual row, and kicks off the
 // background page processor. Returns the new manual id.
