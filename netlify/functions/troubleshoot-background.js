@@ -21,6 +21,7 @@ const SYSTEM = `You are a maintenance troubleshooting assistant for PMI Tape, a 
 RULES — follow exactly:
 - ALWAYS prioritize the PAST REPAIR LOGS provided. If a past repair matches the problem, lead with it: say what was wrong before and how it was fixed, and reference it (e.g. "Past repair from 3/14: …").
 - After the logs, use the MANUAL EXCERPTS, then general/web knowledge.
+- When you search the web, include the machine's MANUFACTURER and MODEL NUMBER in your query (e.g. "<manufacturer> <model> <problem>"), so results are specific to this exact equipment rather than a generic machine name.
 - Keep it SHORT. A few bullet points only. Do not overwhelm the technician.
 - Each bullet is one concrete thing to check or do, most likely cause first.
 - Plain shop-floor language. No long preambles, no safety lectures unless a step is genuinely dangerous (then one short caution).
@@ -34,6 +35,17 @@ async function runJob(sb, job) {
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   const query = (lastUser?.content || '').trim();
   if (!query) throw new Error('No user question in payload');
+
+  // Pull the machine's make/model/serial so web searches can be specific to this equipment.
+  let machineInfo = { manufacturer: null, model_number: null, serial_number: null };
+  try {
+    const { data: mrow } = await sb
+      .from('et_machines')
+      .select('manufacturer, model_number, serial_number')
+      .eq('id', machineId)
+      .single();
+    if (mrow) machineInfo = mrow;
+  } catch { /* fall back to name only */ }
 
   // 1+2. Search repair logs (prioritized) and manual pages in parallel
   const [logsRes, pagesRes] = await Promise.all([
@@ -74,9 +86,19 @@ async function runJob(sb, job) {
   }));
   while (convo.length && convo[0].role === 'assistant') convo.shift();
   const lastIdx = convo.map((m) => m.role).lastIndexOf('user');
+  const machineLine = [
+    `Machine: ${machineName}`,
+    machineInfo.manufacturer ? `Manufacturer: ${machineInfo.manufacturer}` : null,
+    machineInfo.model_number ? `Model number: ${machineInfo.model_number}` : null,
+  ].filter(Boolean).join('\n');
+
+  const webHint = (machineInfo.manufacturer || machineInfo.model_number)
+    ? `\n\nWhen searching the web, use "${[machineInfo.manufacturer, machineInfo.model_number].filter(Boolean).join(' ')}" plus the problem in your query.`
+    : '';
+
   convo[lastIdx] = {
     role: 'user',
-    content: `${context}=== TECHNICIAN'S MESSAGE ===\nMachine: ${machineName}\n${query}\n\nGive a short, bulleted answer. Lead with any matching past repair.`,
+    content: `${context}=== TECHNICIAN'S MESSAGE ===\n${machineLine}\n${query}\n\nGive a short, bulleted answer. Lead with any matching past repair.${webHint}`,
   };
 
   // 3. Ask Claude, with web search available

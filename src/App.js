@@ -61,7 +61,7 @@ export default function App() {
   };
 
   const pageTitle =
-    view === 'home' ? 'Equipment Troubleshooting'
+    view === 'home' ? 'Maintenance'
     : view === 'edit' ? 'Edit Machines'
     : mode === 'repair' ? 'Log a Repair'
     : mode === 'manual' ? 'Add a Manual'

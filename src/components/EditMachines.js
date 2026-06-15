@@ -4,6 +4,10 @@ import { useToast } from './Toast';
 
 const EMPTY = { name: '', manufacturer: '', model_number: '', manufacturer_phone: '', manufacturer_email: '', serial_number: '' };
 
+// Password required to remove a machine. Note: this is checked in the browser,
+// so it guards against accidental/casual deletion, not a determined user.
+const REMOVE_PASSWORD = 'Purdue2009';
+
 export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker }) {
   const [machines, setMachines] = useState([]);
   const [counts, setCounts] = useState({});
@@ -12,6 +16,8 @@ export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker
 
   const [confirmTarget, setConfirmTarget] = useState(null); // machine pending removal
   const [removing, setRemoving] = useState(false);
+  const [removePw, setRemovePw] = useState('');
+  const [removePwError, setRemovePwError] = useState(false);
 
   const [editTarget, setEditTarget] = useState(null);       // machine being edited
   const [editForm, setEditForm] = useState(EMPTY);
@@ -84,13 +90,19 @@ export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker
     }
   };
 
+  const openRemove = (m) => { setRemovePw(''); setRemovePwError(false); setConfirmTarget(m); };
+  const closeRemove = () => { if (removing) return; setConfirmTarget(null); setRemovePw(''); setRemovePwError(false); };
+
   const doRemove = async () => {
     if (!confirmTarget) return;
+    if (removePw !== REMOVE_PASSWORD) { setRemovePwError(true); return; }
     setRemoving(true);
     try {
       await removeMachine(confirmTarget.id);
       toast(`Removed ${confirmTarget.name}`, 'success');
       setConfirmTarget(null);
+      setRemovePw('');
+      setRemovePwError(false);
       await load();
     } catch (e) {
       toast(e.message || 'Could not remove machine', 'error');
@@ -180,7 +192,7 @@ export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker
                     </div>
                     <div className="machine-edit-actions">
                       <button className="btn btn-sm" onClick={() => openEdit(m)}>Edit Machine</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => setConfirmTarget(m)}>Remove</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => openRemove(m)}>Remove</button>
                     </div>
                   </div>
                 );
@@ -247,11 +259,11 @@ export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker
 
       {/* Remove confirmation */}
       {confirmTarget && (
-        <div className="modal-overlay" onClick={() => !removing && setConfirmTarget(null)}>
+        <div className="modal-overlay" onClick={closeRemove}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">Remove {confirmTarget.name}?</span>
-              <button className="modal-close" onClick={() => !removing && setConfirmTarget(null)}>×</button>
+              <button className="modal-close" onClick={closeRemove}>×</button>
             </div>
             <div className="modal-body">
               <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text)' }}>
@@ -262,10 +274,29 @@ export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker
                 </strong>
                 . This can't be undone.
               </p>
+              <div className="field-group">
+                <label className="field-label">Enter the password to remove</label>
+                <input
+                  className="field-input"
+                  type="password"
+                  value={removePw}
+                  onChange={(e) => { setRemovePw(e.target.value); setRemovePwError(false); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') doRemove(); }}
+                  placeholder="Password"
+                  autoComplete="off"
+                  autoFocus
+                  disabled={removing}
+                />
+                {removePwError && (
+                  <span style={{ fontSize: 12, color: 'var(--danger)', marginTop: 2 }}>
+                    Incorrect password.
+                  </span>
+                )}
+              </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setConfirmTarget(null)} disabled={removing}>Cancel</button>
-              <button className="btn btn-danger" onClick={doRemove} disabled={removing}>
+              <button className="btn btn-ghost" onClick={closeRemove} disabled={removing}>Cancel</button>
+              <button className="btn btn-danger" onClick={doRemove} disabled={removing || !removePw}>
                 {removing ? <><span className="spinner" /> Removing…</> : 'Remove machine'}
               </button>
             </div>
