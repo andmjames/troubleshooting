@@ -103,10 +103,23 @@ export default function TroubleshootChat({ machine, onBack }) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
+  const detailParts = [];
+  if (machine.model_number) detailParts.push(`Model ${machine.model_number}`);
+  if (machine.serial_number) detailParts.push(`S/N ${machine.serial_number}`);
+  if (machine.manufacturer_phone) detailParts.push(machine.manufacturer_phone);
+  if (machine.manufacturer_email) detailParts.push(machine.manufacturer_email);
+
   return (
     <div className="chat-wrap">
       <div className="chat-context-bar">
-        Troubleshooting <span className="chat-context-machine">{machine.name}</span>
+        <div className="chat-context-main">
+          <div className="chat-context-top">
+            Troubleshooting <span className="chat-context-machine">{machine.name}</span>
+          </div>
+          {detailParts.length > 0 && (
+            <div className="chat-context-details">{detailParts.join('  ·  ')}</div>
+          )}
+        </div>
         <button className="btn btn-ghost btn-sm" onClick={onBack}>Change machine</button>
       </div>
 

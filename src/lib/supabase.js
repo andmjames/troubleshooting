@@ -9,7 +9,7 @@ export const supabase = createClient(url, anonKey);
 export async function fetchMachines() {
   const { data, error } = await supabase
     .from('et_machines')
-    .select('id, name, manufacturer, model_number')
+    .select('id, name, manufacturer, model_number, manufacturer_phone, manufacturer_email, serial_number')
     .order('sort_order', { ascending: true });
   if (error) throw error;
   return data || [];
@@ -110,7 +110,7 @@ export async function fetchManualCounts() {
 }
 
 // Add a machine. Name is required and must be unique.
-export async function addMachine({ name, manufacturer, model_number }) {
+export async function addMachine({ name, manufacturer, model_number, manufacturer_phone, manufacturer_email, serial_number }) {
   const trimmed = (name || '').trim();
   if (!trimmed) throw new Error('Machine name is required');
 
@@ -123,18 +123,45 @@ export async function addMachine({ name, manufacturer, model_number }) {
     .maybeSingle();
   const sort_order = (maxRow?.sort_order || 0) + 10;
 
+  const clean = (v) => (v || '').trim() || null;
   const { data, error } = await supabase
     .from('et_machines')
     .insert({
       name: trimmed,
-      manufacturer: (manufacturer || '').trim() || null,
-      model_number: (model_number || '').trim() || null,
+      manufacturer: clean(manufacturer),
+      model_number: clean(model_number),
+      manufacturer_phone: clean(manufacturer_phone),
+      manufacturer_email: clean(manufacturer_email),
+      serial_number: clean(serial_number),
       sort_order,
     })
     .select()
     .single();
   if (error) {
     if (error.code === '23505') throw new Error(`A machine named "${trimmed}" already exists`);
+    throw error;
+  }
+  return data;
+}
+
+// Update an existing machine's editable fields.
+export async function updateMachine(id, fields) {
+  const clean = (v) => (v || '').trim() || null;
+  const allowed = ['name', 'manufacturer', 'model_number', 'manufacturer_phone', 'manufacturer_email', 'serial_number'];
+  const payload = {};
+  for (const k of allowed) {
+    if (k in fields) payload[k] = k === 'name' ? (fields[k] || '').trim() : clean(fields[k]);
+  }
+  if ('name' in payload && !payload.name) throw new Error('Machine name is required');
+
+  const { data, error } = await supabase
+    .from('et_machines')
+    .update(payload)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) {
+    if (error.code === '23505') throw new Error('A machine with that name already exists');
     throw error;
   }
   return data;

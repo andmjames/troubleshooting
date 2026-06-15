@@ -1,19 +1,24 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { fetchMachines, fetchManualCounts, addMachine, removeMachine } from '../lib/supabase';
+import { fetchMachines, fetchManualCounts, addMachine, updateMachine, removeMachine } from '../lib/supabase';
 import { useToast } from './Toast';
+
+const EMPTY = { name: '', manufacturer: '', model_number: '', manufacturer_phone: '', manufacturer_email: '', serial_number: '' };
 
 export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker }) {
   const [machines, setMachines] = useState([]);
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
   const [confirmTarget, setConfirmTarget] = useState(null); // machine pending removal
   const [removing, setRemoving] = useState(false);
 
+  const [editTarget, setEditTarget] = useState(null);       // machine being edited
+  const [editForm, setEditForm] = useState(EMPTY);
+  const [editSaving, setEditSaving] = useState(false);
+
   // New-machine form
-  const [name, setName] = useState('');
-  const [manufacturer, setManufacturer] = useState('');
-  const [model, setModel] = useState('');
+  const [form, setForm] = useState(EMPTY);
 
   const toast = useToast();
 
@@ -32,18 +37,50 @@ export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker
 
   useEffect(() => { load(); }, [load]);
 
+  const setField = (setter) => (key) => (e) => setter((f) => ({ ...f, [key]: e.target.value }));
+  const onAddField = setField(setForm);
+  const onEditField = setField(setEditForm);
+
   const add = async () => {
-    if (!name.trim()) { toast('Enter a machine name', 'error'); return; }
+    if (!form.name.trim()) { toast('Enter a machine name', 'error'); return; }
     setSaving(true);
     try {
-      await addMachine({ name, manufacturer, model_number: model });
+      await addMachine(form);
       toast('Machine added', 'success');
-      setName(''); setManufacturer(''); setModel('');
+      setForm(EMPTY);
       await load();
     } catch (e) {
       toast(e.message || 'Could not add machine', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openEdit = (m) => {
+    setEditForm({
+      name: m.name || '',
+      manufacturer: m.manufacturer || '',
+      model_number: m.model_number || '',
+      manufacturer_phone: m.manufacturer_phone || '',
+      manufacturer_email: m.manufacturer_email || '',
+      serial_number: m.serial_number || '',
+    });
+    setEditTarget(m);
+  };
+
+  const saveEdit = async () => {
+    if (!editTarget) return;
+    if (!editForm.name.trim()) { toast('Machine name is required', 'error'); return; }
+    setEditSaving(true);
+    try {
+      await updateMachine(editTarget.id, editForm);
+      toast('Machine updated', 'success');
+      setEditTarget(null);
+      await load();
+    } catch (e) {
+      toast(e.message || 'Could not update machine', 'error');
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -81,34 +118,35 @@ export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker
           <div className="field-grid-2">
             <div className="field-group">
               <label className="field-label">Machine name *</label>
-              <input
-                className="field-input"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Slitter - TG310"
-              />
+              <input className="field-input" value={form.name} onChange={onAddField('name')} placeholder="e.g. Slitter - TG310" />
             </div>
             <div className="field-group">
               <label className="field-label">Manufacturer</label>
-              <input
-                className="field-input"
-                value={manufacturer}
-                onChange={(e) => setManufacturer(e.target.value)}
-                placeholder="e.g. Shanklin"
-              />
+              <input className="field-input" value={form.manufacturer} onChange={onAddField('manufacturer')} placeholder="e.g. Shanklin" />
             </div>
           </div>
-          <div className="field-group" style={{ marginTop: 12 }}>
-            <label className="field-label">Model number</label>
-            <input
-              className="field-input"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder="e.g. A26A"
-            />
+          <div className="field-grid-2" style={{ marginTop: 12 }}>
+            <div className="field-group">
+              <label className="field-label">Model number</label>
+              <input className="field-input" value={form.model_number} onChange={onAddField('model_number')} placeholder="e.g. A26A" />
+            </div>
+            <div className="field-group">
+              <label className="field-label">Serial number</label>
+              <input className="field-input" value={form.serial_number} onChange={onAddField('serial_number')} placeholder="off the data plate" />
+            </div>
+          </div>
+          <div className="field-grid-2" style={{ marginTop: 12 }}>
+            <div className="field-group">
+              <label className="field-label">Manufacturer phone</label>
+              <input className="field-input" type="tel" value={form.manufacturer_phone} onChange={onAddField('manufacturer_phone')} placeholder="support line" />
+            </div>
+            <div className="field-group">
+              <label className="field-label">Manufacturer email</label>
+              <input className="field-input" type="email" value={form.manufacturer_email} onChange={onAddField('manufacturer_email')} placeholder="support@…" />
+            </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-            <button className="btn btn-primary" onClick={add} disabled={saving || !name.trim()}>
+            <button className="btn btn-primary" onClick={add} disabled={saving || !form.name.trim()}>
               {saving ? <><span className="spinner" /> Adding…</> : 'Add machine'}
             </button>
           </div>
@@ -129,25 +167,83 @@ export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker
             <div className="picker-empty">No machines yet — add one above.</div>
           ) : (
             <div className="machine-edit-list">
-              {machines.map((m) => (
-                <div key={m.id} className="machine-edit-row">
-                  <div className="machine-edit-info">
-                    <div className="machine-edit-name">{m.name}</div>
-                    <div className="machine-edit-meta">
-                      {[m.manufacturer, m.model_number].filter(Boolean).join(' · ') || 'No make/model set'}
-                      {counts[m.id] ? ` · ${counts[m.id]} manual${counts[m.id] > 1 ? 's' : ''}` : ' · no manuals'}
+              {machines.map((m) => {
+                const meta = [m.manufacturer, m.model_number].filter(Boolean).join(' · ') || 'No make/model set';
+                const cnt = counts[m.id];
+                return (
+                  <div key={m.id} className="machine-edit-row">
+                    <div className="machine-edit-info">
+                      <div className="machine-edit-name">{m.name}</div>
+                      <div className="machine-edit-meta">
+                        {meta}{cnt ? ` · ${cnt} manual${cnt > 1 ? 's' : ''}` : ' · no manuals'}
+                      </div>
+                    </div>
+                    <div className="machine-edit-actions">
+                      <button className="btn btn-sm" onClick={() => openEdit(m)}>Edit Machine</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => setConfirmTarget(m)}>Remove</button>
                     </div>
                   </div>
-                  <div className="machine-edit-actions">
-                    <button className="btn btn-sm" onClick={() => onAddManual(m)}>Add manual</button>
-                    <button className="btn btn-sm btn-danger" onClick={() => setConfirmTarget(m)}>Remove</button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
+
+      {/* Edit machine modal */}
+      {editTarget && (
+        <div className="modal-overlay" onClick={() => !editSaving && setEditTarget(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Edit {editTarget.name}</span>
+              <button className="modal-close" onClick={() => !editSaving && setEditTarget(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <span className="field-label" style={{ margin: 0 }}>
+                  {counts[editTarget.id] ? `${counts[editTarget.id]} manual${counts[editTarget.id] > 1 ? 's' : ''} on file` : 'No manuals yet'}
+                </span>
+                <button className="btn btn-sm" onClick={() => onAddManual(editTarget)}>Add manual</button>
+              </div>
+
+              <div className="field-group">
+                <label className="field-label">Machine name *</label>
+                <input className="field-input" value={editForm.name} onChange={onEditField('name')} />
+              </div>
+              <div className="field-grid-2">
+                <div className="field-group">
+                  <label className="field-label">Manufacturer</label>
+                  <input className="field-input" value={editForm.manufacturer} onChange={onEditField('manufacturer')} />
+                </div>
+                <div className="field-group">
+                  <label className="field-label">Model number</label>
+                  <input className="field-input" value={editForm.model_number} onChange={onEditField('model_number')} />
+                </div>
+              </div>
+              <div className="field-group">
+                <label className="field-label">Serial number</label>
+                <input className="field-input" value={editForm.serial_number} onChange={onEditField('serial_number')} placeholder="off the data plate" />
+              </div>
+              <div className="field-grid-2">
+                <div className="field-group">
+                  <label className="field-label">Manufacturer phone</label>
+                  <input className="field-input" type="tel" value={editForm.manufacturer_phone} onChange={onEditField('manufacturer_phone')} />
+                </div>
+                <div className="field-group">
+                  <label className="field-label">Manufacturer email</label>
+                  <input className="field-input" type="email" value={editForm.manufacturer_email} onChange={onEditField('manufacturer_email')} />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveEdit} disabled={editSaving || !editForm.name.trim()}>
+                {editSaving ? <><span className="spinner" /> Saving…</> : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Remove confirmation */}
       {confirmTarget && (
