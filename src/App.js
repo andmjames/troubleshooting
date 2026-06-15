@@ -5,22 +5,26 @@ import TroubleshootChat from './components/TroubleshootChat';
 import RepairLog from './components/RepairLog';
 import UploadManual from './components/UploadManual';
 import EditMachines from './components/EditMachines';
+import PreventativeMaintenance from './components/PreventativeMaintenance';
+import PMEditor from './components/PMEditor';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import { LOGO_SRC } from './logo';
 import './App.css';
 
-// Views: 'home' → 'picker' → ('chat' | 'repair' | 'manual'), plus 'edit'
+// Views: 'home' → 'picker' → ('chat' | 'repair' | 'manual'), plus 'edit', 'pm', 'pmEdit'
 export default function App() {
   const [view, setView] = useState('home');
   const [mode, setMode] = useState(null);          // 'troubleshoot' | 'repair' | 'manual'
   const [machine, setMachine] = useState(null);
   const [manualOrigin, setManualOrigin] = useState('home'); // 'picker' | 'edit'
+  const [pmMachine, setPmMachine] = useState(null); // machine whose PM tasks are being edited
 
   const goHome = () => { setView('home'); setMode(null); setMachine(null); };
 
   const choose = (m) => {
     if (m === 'edit') { setView('edit'); return; }
+    if (m === 'pm') { setView('pm'); return; }
     setMode(m);
     setManualOrigin('picker');
     setView('picker');
@@ -31,38 +35,30 @@ export default function App() {
     setView(mode === 'repair' ? 'repair' : mode === 'manual' ? 'manual' : 'chat');
   };
 
-  // Picker-flow "change machine" / "add another for a different machine"
   const backToPicker = () => { setMachine(null); setView('picker'); };
 
-  // Launch the manual uploader for a specific machine from the editor.
   const addManualFor = (mc) => {
-    setMachine(mc);
-    setMode('manual');
-    setManualOrigin('edit');
-    setView('manual');
+    setMachine(mc); setMode('manual'); setManualOrigin('edit'); setView('manual');
   };
-
-  // From the editor: "Add a manual" with machine selection on the next screen.
   const addManualViaPicker = () => {
-    setMode('manual');
-    setManualOrigin('edit');
-    setMachine(null);
-    setView('picker');
+    setMode('manual'); setManualOrigin('edit'); setMachine(null); setView('picker');
   };
-
-  // Where the manual uploader returns to depends on how it was opened.
   const manualBack = () => {
-    if (manualOrigin === 'edit') { setMachine(null); setView('edit'); }
-    else { goHome(); }
+    if (manualOrigin === 'edit') { setMachine(null); setView('edit'); } else { goHome(); }
   };
   const manualAnother = () => {
     if (manualOrigin === 'edit') { setMachine(null); setView('edit'); }
     else { setMachine(null); setView('picker'); }
   };
 
+  // Preventative-maintenance task editing (from Edit Machine modal)
+  const editPMFor = (mc) => { setPmMachine(mc); setView('pmEdit'); };
+
   const pageTitle =
     view === 'home' ? 'Maintenance'
     : view === 'edit' ? 'Edit Machines'
+    : view === 'pm' ? 'Preventative Maintenance'
+    : view === 'pmEdit' ? 'Preventative Maintenance'
     : mode === 'repair' ? 'Log a Repair'
     : mode === 'manual' ? 'Add a Manual'
     : 'Troubleshooting';
@@ -103,7 +99,18 @@ export default function App() {
             )}
 
             {view === 'edit' && (
-              <EditMachines onBack={goHome} onAddManual={addManualFor} onAddManualViaPicker={addManualViaPicker} />
+              <EditMachines
+                onBack={goHome}
+                onAddManual={addManualFor}
+                onAddManualViaPicker={addManualViaPicker}
+                onEditPM={editPMFor}
+              />
+            )}
+
+            {view === 'pm' && <PreventativeMaintenance onBack={goHome} />}
+
+            {view === 'pmEdit' && pmMachine && (
+              <PMEditor machine={pmMachine} onBack={() => setView('edit')} />
             )}
           </main>
         </div>

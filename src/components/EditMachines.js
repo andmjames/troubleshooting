@@ -8,7 +8,7 @@ const EMPTY = { name: '', manufacturer: '', model_number: '', manufacturer_phone
 // so it guards against accidental/casual deletion, not a determined user.
 const REMOVE_PASSWORD = 'Purdue2009';
 
-export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker }) {
+export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker, onEditPM }) {
   const [machines, setMachines] = useState([]);
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
@@ -211,11 +211,14 @@ export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker
               <button className="modal-close" onClick={() => !editSaving && setEditTarget(null)}>×</button>
             </div>
             <div className="modal-body">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <span className="field-label" style={{ margin: 0 }}>
                   {counts[editTarget.id] ? `${counts[editTarget.id]} manual${counts[editTarget.id] > 1 ? 's' : ''} on file` : 'No manuals yet'}
                 </span>
-                <button className="btn btn-sm" onClick={() => onAddManual(editTarget)}>Add manual</button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-sm" onClick={() => onAddManual(editTarget)}>Add manual</button>
+                  <button className="btn btn-sm" onClick={() => onEditPM(editTarget)}>Preventative Maintenance</button>
+                </div>
               </div>
 
               <div className="field-group">

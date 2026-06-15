@@ -190,6 +190,69 @@ export async function removeMachine(machineId) {
   if (error) throw error;
 }
 
+// ── Preventative maintenance ──
+export async function fetchPMTasks(machineId) {
+  const { data, error } = await supabase
+    .from('et_pm_tasks')
+    .select('id, machine_id, name, checklist, interval_days, last_completed')
+    .eq('machine_id', machineId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchAllPMTasks() {
+  const { data, error } = await supabase
+    .from('et_pm_tasks')
+    .select('id, machine_id, name, checklist, interval_days, last_completed');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addPMTask({ machine_id, name, checklist, interval_days }) {
+  const { data, error } = await supabase
+    .from('et_pm_tasks')
+    .insert({
+      machine_id,
+      name: (name || '').trim() || 'Maintenance',
+      checklist: checklist || [],
+      interval_days,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updatePMTask(id, fields) {
+  const payload = {};
+  if ('name' in fields) payload.name = (fields.name || '').trim() || 'Maintenance';
+  if ('checklist' in fields) payload.checklist = fields.checklist || [];
+  if ('interval_days' in fields) payload.interval_days = fields.interval_days;
+  const { data, error } = await supabase
+    .from('et_pm_tasks').update(payload).eq('id', id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function removePMTask(id) {
+  const { error } = await supabase.from('et_pm_tasks').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// Record a completion: log it and reset the task's last_completed (the counter).
+export async function completePMTask({ task_id, machine_id, performed_by, performed_on }) {
+  const { error: cErr } = await supabase.from('et_pm_completions').insert({
+    task_id, machine_id,
+    performed_by: (performed_by || '').trim() || null,
+    performed_on,
+  });
+  if (cErr) throw cErr;
+  const { error: uErr } = await supabase
+    .from('et_pm_tasks').update({ last_completed: performed_on }).eq('id', task_id);
+  if (uErr) throw uErr;
+}
+
 // ── Manual upload (employee-facing) ──
 // Uploads the PDF straight to Storage, creates the manual row, and kicks off the
 // background page processor. Returns the new manual id.
