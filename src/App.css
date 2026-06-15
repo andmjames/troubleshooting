@@ -39,11 +39,12 @@ body {
   background: var(--bg2);
   color: var(--text);
   min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
 }
 
 /* ─── App Shell ───────────────────────────────────────────────────── */
-.app { display: flex; flex-direction: column; min-height: 100vh; }
+.app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
 
 /* Header — exact Bill Upload styling */
 .app-header {
@@ -525,7 +526,8 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .chat-wrap {
   max-width: 760px; margin: 0 auto;
   display: flex; flex-direction: column;
-  height: calc(100vh - 56px - 2rem);
+  height: calc(100vh - 56px - 6rem);
+  height: calc(100dvh - 56px - 6rem);
 }
 .chat-context-bar {
   display: flex; align-items: center; gap: 10px;
@@ -615,7 +617,10 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .chat-input:focus { border-color: var(--text); }
 
 @media (max-width: 768px) {
-  .chat-wrap { height: calc(100vh - 80px - 2rem); }
+  .chat-wrap {
+    height: calc(100vh - 80px - 4rem);
+    height: calc(100dvh - 80px - 4rem);
+  }
   .msg { max-width: 94%; }
 }
 
