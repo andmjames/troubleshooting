@@ -47,6 +47,49 @@ export async function saveRepairLog(row) {
   return data;
 }
 
+// List a machine's repair logs, newest first.
+export async function fetchRepairLogs(machineId) {
+  const { data, error } = await supabase
+    .from('et_repair_logs')
+    .select('id, machine_id, problem, solution, details, technician, problem_photos, solution_photos, created_at')
+    .eq('machine_id', machineId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+// Edit a repair log entry.
+export async function updateRepairLog(id, fields) {
+  const payload = {};
+  if ('problem' in fields) {
+    const p = (fields.problem || '').trim();
+    if (!p) throw new Error('Problem description is required');
+    payload.problem = p;
+  }
+  if ('solution' in fields) payload.solution = (fields.solution || '').trim() || null;
+  if ('details' in fields) payload.details = (fields.details || '').trim() || null;
+  if ('technician' in fields) payload.technician = (fields.technician || '').trim() || null;
+  if ('problem_photos' in fields) payload.problem_photos = fields.problem_photos || [];
+  if ('solution_photos' in fields) payload.solution_photos = fields.solution_photos || [];
+  const { data, error } = await supabase
+    .from('et_repair_logs').update(payload).eq('id', id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+// Delete a repair log entry (best-effort photo cleanup).
+export async function removeRepairLog(log) {
+  try {
+    const paths = [...(log.problem_photos || []), ...(log.solution_photos || [])]
+      .map((p) => p && p.path).filter(Boolean);
+    if (paths.length) await supabase.storage.from('repair-photos').remove(paths);
+  } catch {
+    /* ignore storage cleanup errors */
+  }
+  const { error } = await supabase.from('et_repair_logs').delete().eq('id', log.id);
+  if (error) throw error;
+}
+
 // ── Background troubleshooting: create a job, fire the worker, then poll ──
 export async function createTroubleshootJob({ machineId, machineName, messages }) {
   const { data, error } = await supabase

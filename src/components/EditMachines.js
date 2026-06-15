@@ -8,7 +8,7 @@ const EMPTY = { name: '', manufacturer: '', model_number: '', manufacturer_phone
 // so it guards against accidental/casual deletion, not a determined user.
 const REMOVE_PASSWORD = 'Purdue2009';
 
-export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker, onEditPM }) {
+export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker, onEditPM, onViewLogs }) {
   const [machines, setMachines] = useState([]);
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
@@ -215,9 +215,10 @@ export default function EditMachines({ onBack, onAddManual, onAddManualViaPicker
                 <span className="field-label" style={{ margin: 0 }}>
                   {counts[editTarget.id] ? `${counts[editTarget.id]} manual${counts[editTarget.id] > 1 ? 's' : ''} on file` : 'No manuals yet'}
                 </span>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button className="btn btn-sm" onClick={() => onAddManual(editTarget)}>Add manual</button>
                   <button className="btn btn-sm" onClick={() => onEditPM(editTarget)}>Preventative Maintenance</button>
+                  <button className="btn btn-sm" onClick={() => onViewLogs(editTarget)}>View Repair Log Entries</button>
                 </div>
               </div>
 

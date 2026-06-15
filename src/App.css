@@ -394,6 +394,24 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   .machine-edit-actions .btn { flex: 1; justify-content: center; }
 }
 
+/* ── Repair log entries ────────────────────────────────────────────── */
+.log-list { display: flex; flex-direction: column; gap: 16px; }
+.log-entry {
+  border: .5px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; background: var(--bg);
+}
+.log-entry-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 10px; flex-wrap: wrap;
+}
+.log-entry-date { font-size: 12px; color: var(--text3); font-weight: 600; }
+.log-entry-actions { display: flex; gap: 8px; }
+.log-field-label {
+  font-size: 11px; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .05em; margin-top: 10px; margin-bottom: 3px;
+}
+.log-field-text { font-size: 14px; color: var(--text); line-height: 1.5; white-space: pre-wrap; }
+
 /* ── Preventative maintenance ──────────────────────────────────────── */
 .pm-counts { display: flex; gap: 8px; }
 .pm-count {

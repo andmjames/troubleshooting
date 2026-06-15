@@ -7,6 +7,7 @@ import UploadManual from './components/UploadManual';
 import EditMachines from './components/EditMachines';
 import PreventativeMaintenance from './components/PreventativeMaintenance';
 import PMEditor from './components/PMEditor';
+import RepairLogManager from './components/RepairLogManager';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import { LOGO_SRC } from './logo';
@@ -19,6 +20,7 @@ export default function App() {
   const [machine, setMachine] = useState(null);
   const [manualOrigin, setManualOrigin] = useState('home'); // 'picker' | 'edit'
   const [pmMachine, setPmMachine] = useState(null); // machine whose PM tasks are being edited
+  const [logsMachine, setLogsMachine] = useState(null); // machine whose repair logs are being viewed
 
   const goHome = () => { setView('home'); setMode(null); setMachine(null); };
 
@@ -54,11 +56,15 @@ export default function App() {
   // Preventative-maintenance task editing (from Edit Machine modal)
   const editPMFor = (mc) => { setPmMachine(mc); setView('pmEdit'); };
 
+  // Repair log management (from Edit Machine modal)
+  const viewLogsFor = (mc) => { setLogsMachine(mc); setView('repairLogs'); };
+
   const pageTitle =
     view === 'home' ? 'Maintenance'
     : view === 'edit' ? 'Edit Machines'
     : view === 'pm' ? 'Preventative Maintenance'
     : view === 'pmEdit' ? 'Preventative Maintenance'
+    : view === 'repairLogs' ? 'Repair Log'
     : mode === 'repair' ? 'Log a Repair'
     : mode === 'manual' ? 'Add a Manual'
     : 'Troubleshooting';
@@ -104,6 +110,7 @@ export default function App() {
                 onAddManual={addManualFor}
                 onAddManualViaPicker={addManualViaPicker}
                 onEditPM={editPMFor}
+                onViewLogs={viewLogsFor}
               />
             )}
 
@@ -111,6 +118,10 @@ export default function App() {
 
             {view === 'pmEdit' && pmMachine && (
               <PMEditor machine={pmMachine} onBack={() => setView('edit')} />
+            )}
+
+            {view === 'repairLogs' && logsMachine && (
+              <RepairLogManager machine={logsMachine} onBack={() => setView('edit')} />
             )}
           </main>
         </div>
