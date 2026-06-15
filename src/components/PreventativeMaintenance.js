@@ -93,11 +93,11 @@ export default function PreventativeMaintenance({ onBack }) {
 
         <div className="section">
           <div className="section-header">
-            <span className="section-title"><span className="section-title-dot" /> {selTask.name}</span>
+            <span className="section-title"><span className="section-title-dot" /> {intervalLabel(selTask.interval_days)} checklist</span>
           </div>
           <div className="section-body">
             <div className="pm-task-sub">
-              {intervalLabel(selTask.interval_days)} · {dueText(daysUntilDue(selTask))}
+              {dueText(daysUntilDue(selTask))}
             </div>
             {items.length === 0 ? (
               <div className="picker-empty">No checklist items for this task.</div>
@@ -129,7 +129,7 @@ export default function PreventativeMaintenance({ onBack }) {
           <div className="modal-overlay" onClick={() => !saving && setCompleting(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <span className="modal-title">Complete {selTask.name}</span>
+                <span className="modal-title">Complete {intervalLabel(selTask.interval_days)} maintenance</span>
                 <button className="modal-close" onClick={() => !saving && setCompleting(false)}>×</button>
               </div>
               <div className="modal-body">
@@ -177,8 +177,8 @@ export default function PreventativeMaintenance({ onBack }) {
                     <button key={t.id} className="pm-task-row" onClick={() => openTask(t)}>
                       <span className={`pm-dot pm-dot-${b}`} />
                       <span className="pm-task-info">
-                        <span className="pm-task-name">{t.name}</span>
-                        <span className="pm-task-meta">{intervalLabel(t.interval_days)} · {dueText(d)}</span>
+                        <span className="pm-task-name">{intervalLabel(t.interval_days)}</span>
+                        <span className="pm-task-meta">{dueText(d)}</span>
                       </span>
                       <span className="pm-task-arrow">›</span>
                     </button>

@@ -3,7 +3,7 @@ import { fetchPMTasks, addPMTask, updatePMTask, removePMTask } from '../lib/supa
 import { INTERVALS, intervalLabel } from '../lib/pm';
 import { useToast } from './Toast';
 
-const BLANK = { name: '', bullets: '', interval_days: 30 };
+const BLANK = { bullets: '', interval_days: 90 };
 
 // Convert checklist array <-> textarea text (one bullet per line)
 const toText = (arr) => (Array.isArray(arr) ? arr.join('\n') : '');
@@ -33,24 +33,24 @@ export default function PMEditor({ machine, onBack }) {
 
   const startNew = () => { setForm(BLANK); setEditing('new'); };
   const startEdit = (t) => {
-    setForm({ name: t.name, bullets: toText(t.checklist), interval_days: t.interval_days });
+    setForm({ bullets: toText(t.checklist), interval_days: t.interval_days });
     setEditing(t.id);
   };
   const cancel = () => { setEditing(null); setForm(BLANK); };
 
   const save = async () => {
     const checklist = toList(form.bullets);
-    if (!form.name.trim() && checklist.length === 0) {
-      toast('Add a task name or at least one checklist item', 'error');
+    if (checklist.length === 0) {
+      toast('Add at least one checklist item', 'error');
       return;
     }
     setSaving(true);
     try {
       if (editing === 'new') {
-        await addPMTask({ machine_id: machine.id, name: form.name, checklist, interval_days: form.interval_days });
+        await addPMTask({ machine_id: machine.id, checklist, interval_days: form.interval_days });
         toast('Task added', 'success');
       } else {
-        await updatePMTask(editing, { name: form.name, checklist, interval_days: form.interval_days });
+        await updatePMTask(editing, { checklist, interval_days: form.interval_days });
         toast('Task updated', 'success');
       }
       cancel();
@@ -92,15 +92,6 @@ export default function PMEditor({ machine, onBack }) {
           </div>
           <div className="section-body">
             <div className="field-group">
-              <label className="field-label">Task name</label>
-              <input
-                className="field-input"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Monthly lubrication"
-              />
-            </div>
-            <div className="field-group" style={{ marginTop: 12 }}>
               <label className="field-label">Checklist — one item per line</label>
               <textarea
                 className="repair-textarea"
@@ -148,9 +139,9 @@ export default function PMEditor({ machine, onBack }) {
                     return (
                       <div key={t.id} className="machine-edit-row">
                         <div className="machine-edit-info">
-                          <div className="machine-edit-name">{t.name}</div>
+                          <div className="machine-edit-name">{intervalLabel(t.interval_days)}</div>
                           <div className="machine-edit-meta">
-                            {intervalLabel(t.interval_days)} · {items.length} item{items.length === 1 ? '' : 's'}
+                            {items.length} item{items.length === 1 ? '' : 's'}
                           </div>
                         </div>
                         <div className="machine-edit-actions">
@@ -171,11 +162,13 @@ export default function PMEditor({ machine, onBack }) {
         <div className="modal-overlay" onClick={() => setConfirmDel(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">Delete {confirmDel.name}?</span>
+              <span className="modal-title">Delete this task?</span>
               <button className="modal-close" onClick={() => setConfirmDel(null)}>×</button>
             </div>
             <div className="modal-body">
-              <p style={{ fontSize: 14, lineHeight: 1.6 }}>This removes the task and its completion history. This can't be undone.</p>
+              <p style={{ fontSize: 14, lineHeight: 1.6 }}>
+                This removes the {intervalLabel(confirmDel.interval_days)} task and its completion history. This can't be undone.
+              </p>
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setConfirmDel(null)}>Cancel</button>

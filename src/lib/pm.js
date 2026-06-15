@@ -1,13 +1,9 @@
 // Preventative-maintenance helpers shared by the PM screens.
 
 export const INTERVALS = [
-  { label: 'Daily', days: 1 },
-  { label: 'Weekly', days: 7 },
-  { label: 'Every 2 weeks', days: 14 },
-  { label: 'Monthly', days: 30 },
-  { label: 'Quarterly', days: 90 },
-  { label: 'Every 6 months', days: 182 },
-  { label: 'Annually', days: 365 },
+  { label: 'Every 90 Days', days: 90 },
+  { label: 'Every 6 Months', days: 182 },
+  { label: 'Every Year', days: 365 },
 ];
 
 export function intervalLabel(days) {

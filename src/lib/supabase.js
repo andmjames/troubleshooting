@@ -209,12 +209,11 @@ export async function fetchAllPMTasks() {
   return data || [];
 }
 
-export async function addPMTask({ machine_id, name, checklist, interval_days }) {
+export async function addPMTask({ machine_id, checklist, interval_days }) {
   const { data, error } = await supabase
     .from('et_pm_tasks')
     .insert({
       machine_id,
-      name: (name || '').trim() || 'Maintenance',
       checklist: checklist || [],
       interval_days,
     })
@@ -226,7 +225,6 @@ export async function addPMTask({ machine_id, name, checklist, interval_days }) 
 
 export async function updatePMTask(id, fields) {
   const payload = {};
-  if ('name' in fields) payload.name = (fields.name || '').trim() || 'Maintenance';
   if ('checklist' in fields) payload.checklist = fields.checklist || [];
   if ('interval_days' in fields) payload.interval_days = fields.interval_days;
   const { data, error } = await supabase
