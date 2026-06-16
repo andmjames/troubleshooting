@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { IconSend } from '../lib/icons';
-import { signedUrl, createTroubleshootJob, pollTroubleshootJob } from '../lib/supabase';
+import { IconSend, IconCamera } from '../lib/icons';
+import { signedUrl, createTroubleshootJob, pollTroubleshootJob, uploadTroubleshootPhoto, removeTroubleshootPhoto } from '../lib/supabase';
+import { compressImage } from '../lib/image';
 import { renderPdfPage } from '../lib/pdfRender';
 import { useToast } from './Toast';
 
@@ -69,9 +70,43 @@ export default function TroubleshootChat({ machine, onBack, onClose }) {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [lightbox, setLightbox] = useState(null);
+  const [attachments, setAttachments] = useState([]); // { id, previewUrl, path, status }
   const scrollRef = useRef(null);
   const taRef = useRef(null);
+  const fileRef = useRef(null);
   const toast = useToast();
+
+  const uploadingPhotos = attachments.some((a) => a.status === 'uploading');
+
+  const addFiles = async (fileList) => {
+    const files = Array.from(fileList || []).filter((f) => f.type && f.type.startsWith('image/'));
+    if (!files.length) return;
+    const room = Math.max(0, 6 - attachments.length);
+    for (const file of files.slice(0, room)) {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const previewUrl = URL.createObjectURL(file);
+      setAttachments((a) => [...a, { id, previewUrl, path: null, status: 'uploading' }]);
+      try {
+        const blob = await compressImage(file);
+        const path = await uploadTroubleshootPhoto(blob, machine.id);
+        setAttachments((a) => a.map((x) => (x.id === id ? { ...x, path, status: 'ready' } : x)));
+      } catch (e) {
+        setAttachments((a) => a.map((x) => (x.id === id ? { ...x, status: 'error' } : x)));
+        toast('A photo failed to upload', 'error');
+      }
+    }
+  };
+
+  const removeAttachment = (id) => {
+    setAttachments((a) => {
+      const found = a.find((x) => x.id === id);
+      if (found) {
+        if (found.previewUrl) URL.revokeObjectURL(found.previewUrl);
+        if (found.path) removeTroubleshootPhoto(found.path);
+      }
+      return a.filter((x) => x.id !== id);
+    });
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -84,17 +119,27 @@ export default function TroubleshootChat({ machine, onBack, onClose }) {
 
   const send = async () => {
     const text = input.trim();
-    if (!text || busy) return;
-    const history = [...messages, { role: 'user', content: text }];
+    if (busy || uploadingPhotos) return;
+    const photos = attachments.filter((a) => a.status === 'ready');
+    if (!text && photos.length === 0) return;
+
+    const userMsg = {
+      role: 'user',
+      content: text || '(see attached photos)',
+      images: photos.map((p) => ({ kind: 'photo', url: p.previewUrl })),
+      imagePaths: photos.map((p) => p.path),
+    };
+    const history = [...messages, userMsg];
     setMessages(history);
     setInput('');
+    setAttachments([]); // preview URLs stay alive for the message bubble
     setTimeout(autosize, 0);
     setBusy(true);
     try {
       const jobId = await createTroubleshootJob({
         machineId: machine.id,
         machineName: machine.name,
-        messages: history.map(({ role, content }) => ({ role, content })),
+        messages: history.map(({ role, content, imagePaths }) => ({ role, content, imagePaths })),
       });
       const data = await pollTroubleshootJob(jobId);
       setMessages((m) => [...m, {
@@ -178,19 +223,55 @@ export default function TroubleshootChat({ machine, onBack, onClose }) {
       </div>
 
       <div className="chat-composer">
-        <textarea
-          ref={taRef}
-          className="chat-input"
-          rows={1}
-          placeholder="Describe the problem…"
-          value={input}
-          onChange={(e) => { setInput(e.target.value); autosize(); }}
-          onKeyDown={onKeyDown}
-          disabled={busy}
-        />
-        <button className="btn btn-primary" onClick={send} disabled={busy || !input.trim()}>
-          <IconSend /> Send
-        </button>
+        {attachments.length > 0 && (
+          <div className="chat-attachments">
+            {attachments.map((a) => (
+              <div key={a.id} className="chat-attach-thumb">
+                <img src={a.previewUrl} alt="" />
+                {a.status === 'uploading' && <div className="chat-attach-overlay"><span className="spinner" /></div>}
+                {a.status === 'error' && <div className="chat-attach-overlay chat-attach-error">!</div>}
+                <button type="button" className="chat-attach-remove" onClick={() => removeAttachment(a.id)} aria-label="Remove photo">×</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="chat-composer-row">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
+          />
+          <button
+            type="button"
+            className="btn btn-ghost chat-attach-btn"
+            onClick={() => fileRef.current?.click()}
+            disabled={busy || attachments.length >= 6}
+            aria-label="Add photo"
+            title="Add a photo"
+          >
+            <IconCamera />
+          </button>
+          <textarea
+            ref={taRef}
+            className="chat-input"
+            rows={1}
+            placeholder="Describe the problem…"
+            value={input}
+            onChange={(e) => { setInput(e.target.value); autosize(); }}
+            onKeyDown={onKeyDown}
+            disabled={busy}
+          />
+          <button
+            className="btn btn-primary"
+            onClick={send}
+            disabled={busy || uploadingPhotos || (!input.trim() && !attachments.some((a) => a.status === 'ready'))}
+          >
+            <IconSend /> Send
+          </button>
+        </div>
       </div>
 
       {lightbox && (

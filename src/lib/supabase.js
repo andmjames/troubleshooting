@@ -36,6 +36,23 @@ export async function signedUrl(bucket, path, expiresIn = 3600) {
   return data?.signedUrl || null;
 }
 
+// Upload a troubleshooting-chat photo (compressed blob) to the repair-photos bucket.
+export async function uploadTroubleshootPhoto(blob, machineId) {
+  const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
+  const path = `troubleshoot/${machineId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage
+    .from('repair-photos')
+    .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: false });
+  if (error) throw error;
+  return path;
+}
+
+// Best-effort delete of an uploaded chat photo (e.g. user removed it before sending).
+export async function removeTroubleshootPhoto(path) {
+  if (!path) return;
+  try { await supabase.storage.from('repair-photos').remove([path]); } catch { /* ignore */ }
+}
+
 // Save a repair log row.
 export async function saveRepairLog(row) {
   const { data, error } = await supabase

@@ -96,10 +96,31 @@ async function runJob(sb, job) {
     ? `\n\nWhen searching the web, use "${[machineInfo.manufacturer, machineInfo.model_number].filter(Boolean).join(' ')}" plus the problem in your query.`
     : '';
 
-  convo[lastIdx] = {
-    role: 'user',
-    content: `${context}=== TECHNICIAN'S MESSAGE ===\n${machineLine}\n${query}\n\nGive a short, bulleted answer. Lead with any matching past repair.${webHint}`,
-  };
+  // Photos the technician attached to their latest message — pull them from storage
+  // and hand them to Claude as image blocks so it can diagnose from what it sees.
+  const imageBlocks = [];
+  const imgPaths = Array.isArray(lastUser?.imagePaths) ? lastUser.imagePaths.filter(Boolean).slice(0, 6) : [];
+  for (const p of imgPaths) {
+    try {
+      const { data: f, error: e } = await sb.storage.from('repair-photos').download(p);
+      if (e || !f) continue;
+      const buf = Buffer.from(await f.arrayBuffer());
+      if (buf.length > 5 * 1024 * 1024) continue; // stay under the per-image limit
+      const ext = (p.split('.').pop() || 'jpg').toLowerCase();
+      const media = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      imageBlocks.push({ type: 'image', source: { type: 'base64', media_type: media, data: buf.toString('base64') } });
+    } catch { /* skip a photo that won't load */ }
+  }
+
+  const photoHint = imageBlocks.length
+    ? `\n\nThe technician attached ${imageBlocks.length} photo${imageBlocks.length > 1 ? 's' : ''} — examine ${imageBlocks.length > 1 ? 'them' : 'it'} closely (leaks, damage, wear, error displays, part condition, wiring) and factor what you see into your diagnosis.`
+    : '';
+
+  const userText = `${context}=== TECHNICIAN'S MESSAGE ===\n${machineLine}\n${query}\n\nGive a short, bulleted answer. Lead with any matching past repair.${webHint}${photoHint}`;
+
+  convo[lastIdx] = imageBlocks.length
+    ? { role: 'user', content: [...imageBlocks, { type: 'text', text: userText }] }
+    : { role: 'user', content: userText };
 
   // 3. Ask Claude, with web search available
   const data = await callClaude({
