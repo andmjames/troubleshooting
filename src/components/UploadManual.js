@@ -102,9 +102,9 @@ export default function UploadManual({ machine, onBack, onAnother }) {
 
   return (
     <div className="repair-wrap">
+      <button className="back-link" onClick={onBack} style={{ marginBottom: 12 }}>← Back</button>
       <div className="repair-context-bar">
         Adding a manual for <span className="repair-context-machine">{machine.name}</span>
-        {!working && <button className="btn btn-ghost btn-sm" onClick={onBack}>Change machine</button>}
       </div>
 
       {/* Existing manuals for this machine — confirms you're adding to a set */}

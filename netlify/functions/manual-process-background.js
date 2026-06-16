@@ -62,6 +62,11 @@ exports.handler = async (event) => {
   const { data: manual, error } = await sb.from('et_manuals').select('*').eq('id', manualId).single();
   if (error || !manual) return { statusCode: 404, body: 'Manual not found' };
 
+  // Re-invoke before approaching the 15-minute background-function cap, so a large
+  // manual is split across a few invocations. Most manuals finish in one run.
+  const RUN_BUDGET_MS = 8 * 60 * 1000;
+  const t0 = Date.now();
+
   try {
     if (startPage === 1) {
       await sb.from('et_manuals').update({ status: 'processing', error: null }).eq('id', manualId);
@@ -77,48 +82,57 @@ exports.handler = async (event) => {
       await sb.from('et_manuals').update({ page_count: pageCount }).eq('id', manualId);
     }
 
-    const endPage = Math.min(startPage + CHUNK_PAGES - 1, pageCount);
-    const count = endPage - startPage + 1;
+    let cursor = startPage;            // 1-based page to start this chunk
+    while (cursor <= pageCount) {
+      const endPage = Math.min(cursor + CHUNK_PAGES - 1, pageCount);
+      const count = endPage - cursor + 1;
 
-    // Build a sub-PDF with just this chunk's pages.
-    const sub = await PDFDocument.create();
-    const indices = [];
-    for (let p = startPage - 1; p <= endPage - 1; p++) indices.push(p);
-    const copied = await sub.copyPages(src, indices);
-    copied.forEach((pg) => sub.addPage(pg));
-    const subBytes = await sub.save();
+      // Build a sub-PDF with just this chunk's pages.
+      const sub = await PDFDocument.create();
+      const indices = [];
+      for (let p = cursor - 1; p <= endPage - 1; p++) indices.push(p);
+      const copied = await sub.copyPages(src, indices);
+      copied.forEach((pg) => sub.addPage(pg));
+      const subBytes = await sub.save();
 
-    // Ask Claude for one summary per page (by order).
-    let summaries = [];
-    try { summaries = await summarizeChunk(subBytes, startPage, count, manual.title || 'machine'); }
-    catch (e) { summaries = []; /* fall through: store blank summaries, keep going */ }
+      // Ask Claude for one summary per page (by order).
+      let summaries = [];
+      try { summaries = await summarizeChunk(subBytes, cursor, count, manual.title || 'machine'); }
+      catch (e) { summaries = []; /* keep going; store blank summaries for this chunk */ }
 
-    const rows = [];
-    for (let i = 0; i < count; i++) {
-      const summary = (summaries[i] && (summaries[i].summary || summaries[i].text)) || null;
-      rows.push({
-        manual_id: manualId,
-        machine_id: manual.machine_id,
-        page_number: startPage + i,
-        ai_summary: summary,
-        text_content: summary,
-        image_path: null,
-      });
+      const rows = [];
+      for (let i = 0; i < count; i++) {
+        const summary = (summaries[i] && (summaries[i].summary || summaries[i].text)) || null;
+        rows.push({
+          manual_id: manualId,
+          machine_id: manual.machine_id,
+          page_number: cursor + i,
+          ai_summary: summary,
+          text_content: summary,
+          image_path: null,
+        });
+      }
+      if (rows.length) await sb.from('et_manual_pages').insert(rows);
+      await sb.from('et_manuals').update({ pages_done: endPage }).eq('id', manualId);
+
+      cursor = endPage + 1;
+
+      // If there's more to do and we're running low on time, hand the rest to a
+      // fresh invocation. AWAIT the trigger so it's actually sent before we return
+      // (un-awaited work is killed the moment the handler returns).
+      if (cursor <= pageCount && Date.now() - t0 > RUN_BUDGET_MS) {
+        const base = process.env.URL || `https://${event.headers.host}`;
+        const resp = await fetch(`${base}/.netlify/functions/manual-process-background`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ manualId, startPage: cursor }),
+        });
+        if (!resp.ok && resp.status !== 202) throw new Error(`re-invoke failed: ${resp.status}`);
+        return { statusCode: 202, body: 'handed off' };
+      }
     }
-    if (rows.length) await sb.from('et_manual_pages').insert(rows);
 
-    await sb.from('et_manuals').update({ pages_done: endPage }).eq('id', manualId);
-
-    if (endPage < pageCount) {
-      const base = process.env.URL || `https://${event.headers.host}`;
-      fetch(`${base}/.netlify/functions/manual-process-background`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ manualId, startPage: endPage + 1 }),
-      }).catch(() => {});
-    } else {
-      await sb.from('et_manuals').update({ status: 'ready' }).eq('id', manualId);
-    }
+    await sb.from('et_manuals').update({ status: 'ready' }).eq('id', manualId);
   } catch (e) {
     await sb.from('et_manuals').update({ status: 'error', error: String(e.message || e) }).eq('id', manualId);
   }

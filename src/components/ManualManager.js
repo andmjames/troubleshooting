@@ -99,7 +99,7 @@ export default function ManualManager({ machine, onBack, onUpload }) {
                     <button className="btn btn-sm" onClick={() => view(m)} disabled={!m.storage_path || opening === m.id}>
                       {opening === m.id ? <><span className="spinner" /> Opening…</> : 'View'}
                     </button>
-                    {m.status !== 'ready' && m.status !== 'processing' && (
+                    {m.status !== 'ready' && (
                       <button className="btn btn-sm" onClick={() => retry(m)}>Retry</button>
                     )}
                     <button className="btn btn-sm btn-danger" onClick={() => setConfirmDel(m)}>Delete</button>
