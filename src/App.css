@@ -385,14 +385,17 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px;
 }
 .machine-action-buttons {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
   margin-bottom: 18px;
 }
 .machine-action-buttons .btn {
-  width: 100%; justify-content: center; text-align: center; min-height: 38px;
+  width: 100%; min-width: 0; justify-content: center; text-align: center;
+  white-space: normal; line-height: 1.25; padding-top: 8px; padding-bottom: 8px;
+  min-height: 44px; height: 100%;
 }
 @media (max-width: 560px) {
   .machine-action-buttons { grid-template-columns: 1fr; }
+  .machine-action-buttons .btn { white-space: nowrap; }
 }
 .machine-edit-list { display: flex; flex-direction: column; }
 .machine-edit-row {
