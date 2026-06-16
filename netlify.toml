@@ -4,10 +4,6 @@
 
 [functions]
   node_bundler = "esbuild"
-  # mupdf ships a .wasm asset; keep it external so esbuild doesn't try to inline it,
-  # and make sure the package files are shipped with the function bundle.
-  external_node_modules = ["mupdf"]
-  included_files = ["netlify/functions/node_modules/mupdf/**"]
 
 [[redirects]]
   from = "/*"

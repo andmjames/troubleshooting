@@ -111,7 +111,9 @@ async function runJob(sb, job) {
   });
   const answer = textOf(data);
 
-  // 4. Assemble source chips + thumbnail images
+  // 4. Assemble source chips + images.
+  // Repair photos are returned as ready signed image URLs. Manual pages are returned
+  // as a reference to the PDF + page number; the browser renders that page with pdf.js.
   const sources = [];
   const images = [];
   for (const l of logs.slice(0, 3)) {
@@ -120,20 +122,25 @@ async function runJob(sb, job) {
     const photos = [...(l.problem_photos || []), ...(l.solution_photos || [])];
     for (const ph of photos.slice(0, 2)) {
       const url = await sign(sb, 'repair-photos', ph.path);
-      if (url) images.push({ bucket: 'repair-photos', url });
+      if (url) images.push({ kind: 'photo', url });
     }
   }
+  const pdfUrlCache = {};
   for (const p of pages.slice(0, 3)) {
     sources.push({ type: 'manual', label: `${p.manual_title} · p.${p.page_number}` });
-    if (p.image_path) {
-      const url = await sign(sb, 'manual-pages', p.image_path);
-      if (url) images.push({ bucket: 'manual-pages', url });
+    if (p.storage_path) {
+      if (!(p.storage_path in pdfUrlCache)) {
+        pdfUrlCache[p.storage_path] = await sign(sb, 'manuals', p.storage_path, 3600);
+      }
+      const url = pdfUrlCache[p.storage_path];
+      if (url) images.push({ kind: 'manual-page', url, page: p.page_number, label: `${p.manual_title} · p.${p.page_number}` });
     }
   }
   const seen = new Set();
   const uniqueImages = images.filter((im) => {
-    if (!im.url || seen.has(im.url)) return false;
-    seen.add(im.url); return true;
+    const k = im.kind === 'manual-page' ? `${im.url}#${im.page}` : im.url;
+    if (!k || seen.has(k)) return false;
+    seen.add(k); return true;
   }).slice(0, 4);
 
   return { answer, sources, images: uniqueImages };

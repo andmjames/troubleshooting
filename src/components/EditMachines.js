@@ -8,7 +8,7 @@ const EMPTY = { name: '', manufacturer: '', model_number: '', manufacturer_phone
 // so it guards against accidental/casual deletion, not a determined user.
 const REMOVE_PASSWORD = 'Purdue2009';
 
-export default function EditMachines({ onBack, onAddManualViaPicker, onEditPM, onViewLogs, onViewManuals }) {
+export default function EditMachines({ onBack, onEditPM, onViewLogs, onViewManuals }) {
   const [machines, setMachines] = useState([]);
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
@@ -92,6 +92,8 @@ export default function EditMachines({ onBack, onAddManualViaPicker, onEditPM, o
 
   const openRemove = (m) => { setRemovePw(''); setRemovePwError(false); setConfirmTarget(m); };
   const closeRemove = () => { if (removing) return; setConfirmTarget(null); setRemovePw(''); setRemovePwError(false); };
+  // From inside the Edit Machine modal: close it, then open the password-gated remove dialog.
+  const removeFromEdit = () => { const t = editTarget; setEditTarget(null); openRemove(t); };
 
   const doRemove = async () => {
     if (!confirmTarget) return;
@@ -114,12 +116,6 @@ export default function EditMachines({ onBack, onAddManualViaPicker, onEditPM, o
   return (
     <div className="repair-wrap">
       <button className="back-link" onClick={onBack} style={{ marginBottom: 12 }}>← Home</button>
-
-      {/* Quick action: add a manual (pick the machine on the next screen) */}
-      <div className="edit-actions-bar">
-        <span className="edit-actions-label">Manuals & machines</span>
-        <button className="btn btn-sm" onClick={onAddManualViaPicker}>Add a manual</button>
-      </div>
 
       {/* Add a machine */}
       <div className="section">
@@ -192,7 +188,6 @@ export default function EditMachines({ onBack, onAddManualViaPicker, onEditPM, o
                     </div>
                     <div className="machine-edit-actions">
                       <button className="btn btn-sm" onClick={() => openEdit(m)}>Edit Machine</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => openRemove(m)}>Remove</button>
                     </div>
                   </div>
                 );
@@ -211,15 +206,13 @@ export default function EditMachines({ onBack, onAddManualViaPicker, onEditPM, o
               <button className="modal-close" onClick={() => !editSaving && setEditTarget(null)}>×</button>
             </div>
             <div className="modal-body">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <span className="field-label" style={{ margin: 0 }}>
-                  {counts[editTarget.id] ? `${counts[editTarget.id]} manual${counts[editTarget.id] > 1 ? 's' : ''} on file` : 'No manuals yet'}
-                </span>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button className="btn btn-sm" onClick={() => onViewManuals(editTarget)}>View/Upload Manuals</button>
-                  <button className="btn btn-sm" onClick={() => onEditPM(editTarget)}>Preventative Maintenance</button>
-                  <button className="btn btn-sm" onClick={() => onViewLogs(editTarget)}>View Repair Log Entries</button>
-                </div>
+              <div className="machine-action-label">
+                {counts[editTarget.id] ? `${counts[editTarget.id]} manual${counts[editTarget.id] > 1 ? 's' : ''} on file` : 'No manuals yet'}
+              </div>
+              <div className="machine-action-buttons">
+                <button className="btn btn-sm" onClick={() => onViewManuals(editTarget)}>View/Upload Manuals</button>
+                <button className="btn btn-sm" onClick={() => onEditPM(editTarget)}>Preventative Maintenance</button>
+                <button className="btn btn-sm" onClick={() => onViewLogs(editTarget)}>View Repair Log Entries</button>
               </div>
 
               <div className="field-group">
@@ -251,11 +244,14 @@ export default function EditMachines({ onBack, onAddManualViaPicker, onEditPM, o
                 </div>
               </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveEdit} disabled={editSaving || !editForm.name.trim()}>
-                {editSaving ? <><span className="spinner" /> Saving…</> : 'Save changes'}
-              </button>
+            <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+              <button className="btn btn-danger" onClick={removeFromEdit} disabled={editSaving}>Remove machine</button>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn btn-ghost" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</button>
+                <button className="btn btn-primary" onClick={saveEdit} disabled={editSaving || !editForm.name.trim()}>
+                  {editSaving ? <><span className="spinner" /> Saving…</> : 'Save changes'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

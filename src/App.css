@@ -379,6 +379,21 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   font-size: 11px; font-weight: 600; color: var(--text3);
   text-transform: uppercase; letter-spacing: .07em;
 }
+/* Equal-size, evenly spaced action buttons in the Edit Machine modal */
+.machine-action-label {
+  font-size: 11px; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px;
+}
+.machine-action-buttons {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin-bottom: 18px;
+}
+.machine-action-buttons .btn {
+  width: 100%; justify-content: center; text-align: center; min-height: 38px;
+}
+@media (max-width: 560px) {
+  .machine-action-buttons { grid-template-columns: 1fr; }
+}
 .machine-edit-list { display: flex; flex-direction: column; }
 .machine-edit-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -562,6 +577,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   line-height: 1.45; word-break: break-word;
 }
 .chat-context-bar .btn-sm { flex-shrink: 0; }
+.chat-context-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
 .chat-scroll {
   flex: 1; overflow-y: auto;
@@ -613,6 +629,11 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   cursor: pointer; background: var(--bg2);
 }
 .msg-thumb:hover { border-color: var(--text); }
+.msg-thumb-loading {
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: default;
+}
+.msg-thumb-loading:hover { border-color: var(--border); }
 
 .chat-thinking {
   display: flex; align-items: center; gap: 8px;

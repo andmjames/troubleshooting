@@ -165,6 +165,20 @@ export async function viewManual(manual) {
   return url;
 }
 
+// Re-run page processing on a manual (e.g. if it got stuck or failed).
+// Clears any existing pages first to avoid duplicates, then re-fires the worker.
+export async function reprocessManual(manualId) {
+  await supabase.from('et_manual_pages').delete().eq('manual_id', manualId);
+  await supabase.from('et_manuals')
+    .update({ status: 'pending', pages_done: 0, page_count: null, error: null })
+    .eq('id', manualId);
+  fetch('/.netlify/functions/manual-process-background', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ manualId, startPage: 1 }),
+  }).catch(() => {});
+}
+
 // Count manuals per machine → { [machineId]: count } for the Edit Machines list.
 export async function fetchManualCounts() {
   const { data, error } = await supabase.from('et_manuals').select('machine_id');

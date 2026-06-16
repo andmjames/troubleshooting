@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { fetchManualsForMachine, removeManual, viewManual } from '../lib/supabase';
+import { fetchManualsForMachine, removeManual, viewManual, reprocessManual } from '../lib/supabase';
 import { useToast } from './Toast';
 
 function statusLabel(m) {
@@ -40,6 +40,16 @@ export default function ManualManager({ machine, onBack, onUpload }) {
       toast(e.message || 'Could not open this manual', 'error');
     } finally {
       setOpening(null);
+    }
+  };
+
+  const retry = async (m) => {
+    try {
+      await reprocessManual(m.id);
+      toast('Re-processing started', 'success');
+      await load();
+    } catch (e) {
+      toast(e.message || 'Could not restart processing', 'error');
     }
   };
 
@@ -89,6 +99,9 @@ export default function ManualManager({ machine, onBack, onUpload }) {
                     <button className="btn btn-sm" onClick={() => view(m)} disabled={!m.storage_path || opening === m.id}>
                       {opening === m.id ? <><span className="spinner" /> Opening…</> : 'View'}
                     </button>
+                    {m.status !== 'ready' && m.status !== 'processing' && (
+                      <button className="btn btn-sm" onClick={() => retry(m)}>Retry</button>
+                    )}
                     <button className="btn btn-sm btn-danger" onClick={() => setConfirmDel(m)}>Delete</button>
                   </div>
                 </div>

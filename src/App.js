@@ -48,9 +48,6 @@ export default function App() {
 
   const backToPicker = () => { setMachine(null); setView('picker'); };
 
-  const addManualViaPicker = () => {
-    setMode('manual'); setManualOrigin('edit'); setMachine(null); setView('picker');
-  };
   // Upload launched from the manuals manager — return there afterward.
   const uploadManualFromManager = (mc) => {
     setMachine(mc); setMode('manual'); setManualOrigin('manuals'); setView('manual');
@@ -102,15 +99,11 @@ export default function App() {
             {view === 'home' && <Home onChoose={choose} />}
 
             {view === 'picker' && (
-              <MachinePicker
-                mode={mode}
-                onSelect={pickMachine}
-                onBack={mode === 'manual' && manualOrigin === 'edit' ? () => setView('edit') : goHome}
-              />
+              <MachinePicker mode={mode} onSelect={pickMachine} onBack={goHome} />
             )}
 
             {view === 'chat' && machine && (
-              <TroubleshootChat machine={machine} onBack={backToPicker} />
+              <TroubleshootChat machine={machine} onBack={backToPicker} onClose={goHome} />
             )}
 
             {view === 'repair' && machine && (
@@ -124,7 +117,6 @@ export default function App() {
             {view === 'edit' && (
               <EditMachines
                 onBack={goHome}
-                onAddManualViaPicker={addManualViaPicker}
                 onEditPM={editPMFor}
                 onViewLogs={viewLogsFor}
                 onViewManuals={viewManualsFor}

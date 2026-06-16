@@ -1,77 +1,52 @@
-// Background manual processor.
+// Background manual processor (v2 — no native/WASM rendering).
 //
-// Triggered after an employee uploads a manual PDF through the app. For each page
-// it renders a PNG (so the troubleshooter can SHOW the page), extracts the text
-// layer, and asks Claude Haiku for a one-line description — this is what makes the
-// scanned assembly drawings (no text layer) findable.
+// Earlier this used `mupdf` to rasterize pages, which crashed on load in the
+// Netlify Lambda runtime (leaving manuals stuck at "pending"). This version has
+// no rendering library at all:
+//   1. `pdf-lib` (pure JS) splits the PDF into small page-range chunks.
+//   2. Claude reads each chunk natively (its vision handles scanned drawings that
+//      have no text layer) and returns a concise, searchable summary per page.
+//   3. Summaries go into et_manual_pages.ai_summary, which the FTS trigger indexes.
 //
-// Rendering + text extraction use `mupdf` (a WebAssembly build — no poppler, no
-// native canvas, works inside a Netlify Node function).
-//
-// To stay under Netlify's 15-minute background limit on very long manuals, this
-// processes pages in CHUNKS and re-invokes itself for the next chunk until done.
-const { admin } = require('./_shared');
-const mupdf = require('mupdf');
+// Chunks are processed CHUNK_PAGES at a time; the function re-invokes itself for
+// the next chunk so even a 400-page manual stays within the 15-minute limit.
+const { admin, callClaude } = require('./_shared');
+const { PDFDocument } = require('pdf-lib');
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const CHUNK = 25;          // pages per invocation
-const DPI = 110;           // render resolution
-const SUMMARY_CONCURRENCY = 4;
+const CHUNK_PAGES = 15;            // pages per Claude request (well under the 100-page limit)
+const MODEL = 'claude-haiku-4-5-20251001';
 
-async function describePage(pngBuffer, machineName, textSample) {
-  const prompt = `This is one page from an equipment manual for a "${machineName}". Write ONE short line (max 40 words) describing what's on it so a maintenance tech can find it by searching. Name any assembly, part numbers, diagram type, or procedure shown. If it's mostly a drawing, say what mechanism it depicts.`;
-  const res = await fetch(ANTHROPIC_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 120,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: pngBuffer.toString('base64') } },
-          { type: 'text', text: prompt },
-        ],
-      }],
-    }),
-  });
-  if (!res.ok) return '';
-  const data = await res.json();
-  return (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join(' ').trim();
+function parseJsonArray(text) {
+  if (!text) return [];
+  let t = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+  const start = t.indexOf('[');
+  const end = t.lastIndexOf(']');
+  if (start !== -1 && end !== -1 && end > start) t = t.slice(start, end + 1);
+  try { return JSON.parse(t); } catch { return []; }
 }
 
-// Render + extract one page with mupdf.
-function renderPage(doc, pageIndex) {
-  const page = doc.loadPage(pageIndex);
-  // Text layer
-  let text = '';
-  try {
-    const st = page.toStructuredText('preserve-whitespace');
-    text = st.asText() || '';
-  } catch { text = ''; }
-  // Render to PNG at the chosen DPI
-  const scale = DPI / 72;
-  const matrix = mupdf.Matrix.scale(scale, scale);
-  const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, false, true);
-  const png = pixmap.asPNG();           // Uint8Array
-  return { text: text.trim(), png: Buffer.from(png) };
-}
+async function summarizeChunk(subBytes, startPage, count, machineName) {
+  const b64 = Buffer.from(subBytes).toString('base64');
+  const prompt = `These are pages ${startPage}–${startPage + count - 1} of an equipment manual for a "${machineName}". There are ${count} pages in this batch, in order.
 
-async function mapLimit(items, limit, fn) {
-  const out = new Array(items.length);
-  let i = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (i < items.length) {
-      const idx = i++;
-      out[idx] = await fn(items[idx], idx);
-    }
+For EACH page, write a concise searchable summary (max ~50 words) capturing: part numbers, assembly/component names, the type of content (e.g. parts diagram, wiring schematic, procedure, parts list), and any key visible text — so a maintenance tech can find this page by searching.
+
+Return ONLY a JSON array of exactly ${count} objects in page order, no prose, no code fences:
+[{"summary":"..."}, {"summary":"..."}, ...]`;
+
+  const data = await callClaude({
+    model: MODEL,
+    max_tokens: 2500,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
+        { type: 'text', text: prompt },
+      ],
+    }],
   });
-  await Promise.all(workers);
-  return out;
+  const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+  return parseJsonArray(text);
 }
 
 exports.handler = async (event) => {
@@ -92,49 +67,49 @@ exports.handler = async (event) => {
       await sb.from('et_manuals').update({ status: 'processing', error: null }).eq('id', manualId);
     }
 
-    // Download the PDF from storage
     const { data: file, error: dlErr } = await sb.storage.from('manuals').download(manual.storage_path);
     if (dlErr) throw new Error(`download failed: ${dlErr.message}`);
-    const pdfBuffer = Buffer.from(await file.arrayBuffer());
+    const pdfBytes = new Uint8Array(await file.arrayBuffer());
 
-    const doc = mupdf.Document.openDocument(pdfBuffer, 'application/pdf');
-    const pageCount = doc.countPages();
+    const src = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+    const pageCount = src.getPageCount();
     if (!manual.page_count) {
       await sb.from('et_manuals').update({ page_count: pageCount }).eq('id', manualId);
     }
 
-    const endPage = Math.min(startPage + CHUNK - 1, pageCount);
+    const endPage = Math.min(startPage + CHUNK_PAGES - 1, pageCount);
+    const count = endPage - startPage + 1;
 
-    // Build this chunk's page numbers
-    const pageNums = [];
-    for (let p = startPage; p <= endPage; p++) pageNums.push(p);
+    // Build a sub-PDF with just this chunk's pages.
+    const sub = await PDFDocument.create();
+    const indices = [];
+    for (let p = startPage - 1; p <= endPage - 1; p++) indices.push(p);
+    const copied = await sub.copyPages(src, indices);
+    copied.forEach((pg) => sub.addPage(pg));
+    const subBytes = await sub.save();
 
-    // Render all pages in the chunk (synchronous mupdf), then summarize with limited concurrency
-    const rendered = pageNums.map((p) => {
-      const r = renderPage(doc, p - 1);
-      return { page: p, ...r };
-    });
+    // Ask Claude for one summary per page (by order).
+    let summaries = [];
+    try { summaries = await summarizeChunk(subBytes, startPage, count, manual.title || 'machine'); }
+    catch (e) { summaries = []; /* fall through: store blank summaries, keep going */ }
 
-    await mapLimit(rendered, SUMMARY_CONCURRENCY, async (r) => {
-      let summary = '';
-      try { summary = await describePage(r.png, manual.title, r.text); } catch { summary = ''; }
-      const imgPath = `${manualId}/p${String(r.page).padStart(4, '0')}.png`;
-      const up = await sb.storage.from('manual-pages')
-        .upload(imgPath, r.png, { contentType: 'image/png', upsert: true });
-      await sb.from('et_manual_pages').insert({
+    const rows = [];
+    for (let i = 0; i < count; i++) {
+      const summary = (summaries[i] && (summaries[i].summary || summaries[i].text)) || null;
+      rows.push({
         manual_id: manualId,
         machine_id: manual.machine_id,
-        page_number: r.page,
-        text_content: r.text || null,
-        ai_summary: summary || null,
-        image_path: up.error ? null : imgPath,
+        page_number: startPage + i,
+        ai_summary: summary,
+        text_content: summary,
+        image_path: null,
       });
-    });
+    }
+    if (rows.length) await sb.from('et_manual_pages').insert(rows);
 
     await sb.from('et_manuals').update({ pages_done: endPage }).eq('id', manualId);
 
     if (endPage < pageCount) {
-      // More to do — re-invoke ourselves for the next chunk.
       const base = process.env.URL || `https://${event.headers.host}`;
       fetch(`${base}/.netlify/functions/manual-process-background`, {
         method: 'POST',

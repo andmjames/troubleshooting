@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { IconSend } from '../lib/icons';
 import { signedUrl, createTroubleshootJob, pollTroubleshootJob } from '../lib/supabase';
+import { renderPdfPage } from '../lib/pdfRender';
 import { useToast } from './Toast';
 
 // Render a tiny subset of markdown (bullets, **bold**, paragraphs) safely as React nodes.
@@ -33,18 +34,32 @@ function renderAnswer(text) {
   );
 }
 
-function Thumb({ bucket, path, url, onOpen }) {
-  const [src, setSrc] = useState(url || null);
+function Thumb({ img, onOpen }) {
+  const [src, setSrc] = useState(img.kind === 'manual-page' ? null : (img.url || null));
+  const [failed, setFailed] = useState(false);
+
   useEffect(() => {
     let alive = true;
-    if (!url && path) signedUrl(bucket, path).then((u) => { if (alive) setSrc(u); });
+    if (img.kind === 'manual-page' && img.url) {
+      renderPdfPage(img.url, img.page)
+        .then((dataUrl) => { if (alive) setSrc(dataUrl); })
+        .catch(() => { if (alive) setFailed(true); });
+    } else if (!img.url && img.path) {
+      // legacy fallback
+      signedUrl(img.bucket || 'manual-pages', img.path).then((u) => { if (alive) setSrc(u); });
+    }
     return () => { alive = false; };
-  }, [bucket, path, url]);
-  if (!src) return null;
-  return <img className="msg-thumb" src={src} alt="" onClick={() => onOpen(src)} />;
+  }, [img]);
+
+  if (failed) return null;
+  if (!src) {
+    // loading placeholder while a manual page renders
+    return <div className="msg-thumb msg-thumb-loading"><span className="spinner" /></div>;
+  }
+  return <img className="msg-thumb" src={src} alt={img.label || ''} onClick={() => onOpen(src)} />;
 }
 
-export default function TroubleshootChat({ machine, onBack }) {
+export default function TroubleshootChat({ machine, onBack, onClose }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -120,7 +135,10 @@ export default function TroubleshootChat({ machine, onBack }) {
             <div className="chat-context-details">{detailParts.join('  ·  ')}</div>
           )}
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={onBack}>Change machine</button>
+        <div className="chat-context-actions">
+          <button className="btn btn-ghost btn-sm" onClick={onBack}>Change machine</button>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
+        </div>
       </div>
 
       <div className="chat-scroll" ref={scrollRef}>
@@ -133,13 +151,7 @@ export default function TroubleshootChat({ machine, onBack }) {
             {m.images && m.images.length > 0 && (
               <div className="msg-images">
                 {m.images.map((img, j) => (
-                  <Thumb
-                    key={j}
-                    bucket={img.bucket || 'manual-pages'}
-                    path={img.path}
-                    url={img.url}
-                    onOpen={setLightbox}
-                  />
+                  <Thumb key={j} img={img} onOpen={setLightbox} />
                 ))}
               </div>
             )}
