@@ -28,7 +28,7 @@ function loadPdfjs() {
 // Cache rendered pages for the session so re-opening is instant.
 const cache = new Map();
 
-export async function renderPdfPage(url, pageNumber, { scale = 1.6 } = {}) {
+export async function renderPdfPage(url, pageNumber, { scale = 2.2 } = {}) {
   const key = `${url}#${pageNumber}`;
   if (cache.has(key)) return cache.get(key);
 

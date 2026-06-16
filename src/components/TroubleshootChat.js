@@ -3,6 +3,7 @@ import { IconSend, IconCamera } from '../lib/icons';
 import { signedUrl, createTroubleshootJob, pollTroubleshootJob, uploadTroubleshootPhoto, removeTroubleshootPhoto } from '../lib/supabase';
 import { compressImage } from '../lib/image';
 import { renderPdfPage } from '../lib/pdfRender';
+import Lightbox from './Lightbox';
 import { useToast } from './Toast';
 
 // Render a tiny subset of markdown (bullets, **bold**, paragraphs) safely as React nodes.
@@ -274,11 +275,7 @@ export default function TroubleshootChat({ machine, onBack, onClose }) {
         </div>
       </div>
 
-      {lightbox && (
-        <div className="lightbox" onClick={() => setLightbox(null)}>
-          <img src={lightbox} alt="" />
-        </div>
-      )}
+      {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
     </div>
   );
 }

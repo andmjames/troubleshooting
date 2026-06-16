@@ -774,8 +774,24 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   position: fixed; inset: 0; background: rgba(0,0,0,.8);
   display: flex; align-items: center; justify-content: center;
   z-index: 2000; padding: 2rem; cursor: zoom-out;
+  touch-action: none; overflow: hidden; overscroll-behavior: contain;
 }
-.lightbox img { max-width: 100%; max-height: 100%; border-radius: var(--radius); }
+.lightbox-img {
+  max-width: 100%; max-height: 100%; border-radius: var(--radius);
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  -webkit-user-drag: none; will-change: transform;
+}
+.lightbox-close {
+  position: fixed; top: 14px; right: 16px; width: 40px; height: 40px;
+  border: none; border-radius: 50%; background: rgba(255,255,255,.16); color: #fff;
+  font-size: 26px; line-height: 1; cursor: pointer; z-index: 2001;
+  display: flex; align-items: center; justify-content: center;
+}
+.lightbox-reset {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  border: none; border-radius: 999px; background: rgba(255,255,255,.16); color: #fff;
+  padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; z-index: 2001;
+}
 
 /* Back link */
 .back-link {

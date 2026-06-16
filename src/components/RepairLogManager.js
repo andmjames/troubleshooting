@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { fetchRepairLogs, updateRepairLog, removeRepairLog, signedUrl, uploadRepairPhoto } from '../lib/supabase';
 import { IconPlus } from '../lib/icons';
+import Lightbox from './Lightbox';
 import { useToast } from './Toast';
 
 // Thumbnail that resolves a private storage path to a signed URL.
@@ -190,7 +191,7 @@ export default function RepairLogManager({ machine, onBack }) {
           </div>
         </div>
 
-        {lightbox && <div className="lightbox" onClick={() => setLightbox(null)}><img src={lightbox} alt="" /></div>}
+        {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
       </div>
     );
   }
@@ -284,7 +285,7 @@ export default function RepairLogManager({ machine, onBack }) {
         </div>
       )}
 
-      {lightbox && <div className="lightbox" onClick={() => setLightbox(null)}><img src={lightbox} alt="" /></div>}
+      {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
     </div>
   );
 }
