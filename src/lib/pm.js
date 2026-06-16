@@ -50,3 +50,8 @@ export function todayISO() {
   const day = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${m}-${day}`;
 }
+
+// Shareable deep link to complete a specific task.
+export function taskUrl(id) {
+  return `${window.location.origin}/?pmtask=${id}`;
+}

@@ -22,7 +22,6 @@ function PhotoStrip({ photos, onAdd, onRemove, busy }) {
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         multiple
         style={{ display: 'none' }}
         onChange={(e) => { onAdd(Array.from(e.target.files || [])); e.target.value = ''; }}

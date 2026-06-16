@@ -40,7 +40,6 @@ function PhotoEditor({ photos, setPhotos }) {
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         multiple
         style={{ display: 'none' }}
         onChange={(e) => { add(Array.from(e.target.files || [])); e.target.value = ''; }}

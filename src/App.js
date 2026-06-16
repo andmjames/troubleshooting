@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Home from './components/Home';
 import MachinePicker from './components/MachinePicker';
 import TroubleshootChat from './components/TroubleshootChat';
@@ -8,6 +8,7 @@ import EditMachines from './components/EditMachines';
 import PreventativeMaintenance from './components/PreventativeMaintenance';
 import PMEditor from './components/PMEditor';
 import RepairLogManager from './components/RepairLogManager';
+import ManualManager from './components/ManualManager';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import { LOGO_SRC } from './logo';
@@ -21,12 +22,20 @@ export default function App() {
   const [manualOrigin, setManualOrigin] = useState('home'); // 'picker' | 'edit'
   const [pmMachine, setPmMachine] = useState(null); // machine whose PM tasks are being edited
   const [logsMachine, setLogsMachine] = useState(null); // machine whose repair logs are being viewed
+  const [manualsMachine, setManualsMachine] = useState(null); // machine whose manuals are being managed
+  const [initialPmTask, setInitialPmTask] = useState(null);   // PM task id from a shared ?pmtask= link
+
+  // On first load, honor a shared deep link like ?pmtask=123 by opening the PM section on that task.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('pmtask');
+    if (id) { setInitialPmTask(id); setView('pm'); }
+  }, []);
 
   const goHome = () => { setView('home'); setMode(null); setMachine(null); };
 
   const choose = (m) => {
     if (m === 'edit') { setView('edit'); return; }
-    if (m === 'pm') { setView('pm'); return; }
+    if (m === 'pm') { setInitialPmTask(null); setView('pm'); return; }
     setMode(m);
     setManualOrigin('picker');
     setView('picker');
@@ -39,19 +48,26 @@ export default function App() {
 
   const backToPicker = () => { setMachine(null); setView('picker'); };
 
-  const addManualFor = (mc) => {
-    setMachine(mc); setMode('manual'); setManualOrigin('edit'); setView('manual');
-  };
   const addManualViaPicker = () => {
     setMode('manual'); setManualOrigin('edit'); setMachine(null); setView('picker');
   };
+  // Upload launched from the manuals manager — return there afterward.
+  const uploadManualFromManager = (mc) => {
+    setMachine(mc); setMode('manual'); setManualOrigin('manuals'); setView('manual');
+  };
   const manualBack = () => {
-    if (manualOrigin === 'edit') { setMachine(null); setView('edit'); } else { goHome(); }
+    if (manualOrigin === 'manuals') { setView('manuals'); }
+    else if (manualOrigin === 'edit') { setMachine(null); setView('edit'); }
+    else { goHome(); }
   };
   const manualAnother = () => {
-    if (manualOrigin === 'edit') { setMachine(null); setView('edit'); }
+    if (manualOrigin === 'manuals') { setView('manuals'); }
+    else if (manualOrigin === 'edit') { setMachine(null); setView('edit'); }
     else { setMachine(null); setView('picker'); }
   };
+
+  // Manuals manager (from Edit Machine modal)
+  const viewManualsFor = (mc) => { setManualsMachine(mc); setView('manuals'); };
 
   // Preventative-maintenance task editing (from Edit Machine modal)
   const editPMFor = (mc) => { setPmMachine(mc); setView('pmEdit'); };
@@ -65,6 +81,7 @@ export default function App() {
     : view === 'pm' ? 'Preventative Maintenance'
     : view === 'pmEdit' ? 'Preventative Maintenance'
     : view === 'repairLogs' ? 'Repair Log'
+    : view === 'manuals' ? 'Manuals'
     : mode === 'repair' ? 'Log a Repair'
     : mode === 'manual' ? 'Add a Manual'
     : 'Troubleshooting';
@@ -107,14 +124,14 @@ export default function App() {
             {view === 'edit' && (
               <EditMachines
                 onBack={goHome}
-                onAddManual={addManualFor}
                 onAddManualViaPicker={addManualViaPicker}
                 onEditPM={editPMFor}
                 onViewLogs={viewLogsFor}
+                onViewManuals={viewManualsFor}
               />
             )}
 
-            {view === 'pm' && <PreventativeMaintenance onBack={goHome} />}
+            {view === 'pm' && <PreventativeMaintenance onBack={goHome} initialTaskId={initialPmTask} />}
 
             {view === 'pmEdit' && pmMachine && (
               <PMEditor machine={pmMachine} onBack={() => setView('edit')} />
@@ -122,6 +139,10 @@ export default function App() {
 
             {view === 'repairLogs' && logsMachine && (
               <RepairLogManager machine={logsMachine} onBack={() => setView('edit')} />
+            )}
+
+            {view === 'manuals' && manualsMachine && (
+              <ManualManager machine={manualsMachine} onBack={() => setView('edit')} onUpload={uploadManualFromManager} />
             )}
           </main>
         </div>

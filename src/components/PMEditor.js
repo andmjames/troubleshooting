@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { fetchPMTasks, addPMTask, updatePMTask, removePMTask } from '../lib/supabase';
-import { INTERVALS, intervalLabel } from '../lib/pm';
+import { INTERVALS, intervalLabel, taskUrl } from '../lib/pm';
 import { useToast } from './Toast';
 
 const BLANK = { bullets: '', interval_days: 90 };
@@ -71,6 +71,15 @@ export default function PMEditor({ machine, onBack }) {
       await load();
     } catch (e) {
       toast(e.message || 'Could not delete', 'error');
+    }
+  };
+
+  const copyLink = async (t) => {
+    try {
+      await navigator.clipboard.writeText(taskUrl(t.id));
+      toast('Link copied — send it to whoever should complete this', 'success');
+    } catch {
+      toast('Could not copy the link', 'error');
     }
   };
 
@@ -145,6 +154,7 @@ export default function PMEditor({ machine, onBack }) {
                           </div>
                         </div>
                         <div className="machine-edit-actions">
+                          <button className="btn btn-sm" onClick={() => copyLink(t)}>Copy link</button>
                           <button className="btn btn-sm" onClick={() => startEdit(t)}>Edit</button>
                           <button className="btn btn-sm btn-danger" onClick={() => setConfirmDel(t)}>Delete</button>
                         </div>

@@ -136,11 +136,33 @@ export async function pollTroubleshootJob(jobId, { intervalMs = 1500, timeoutMs 
 export async function fetchManualsForMachine(machineId) {
   const { data, error } = await supabase
     .from('et_manuals')
-    .select('id, title, status, page_count, pages_done, created_at')
+    .select('id, title, status, page_count, pages_done, storage_path, created_at')
     .eq('machine_id', machineId)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
+}
+
+// Delete a manual: its row (cascades pages) plus best-effort storage cleanup.
+export async function removeManual(manual) {
+  try {
+    if (manual.storage_path) await supabase.storage.from('manuals').remove([manual.storage_path]);
+    const { data: pages } = await supabase.storage.from('manual-pages').list(String(manual.id), { limit: 1000 });
+    if (pages && pages.length) {
+      await supabase.storage.from('manual-pages').remove(pages.map((f) => `${manual.id}/${f.name}`));
+    }
+  } catch {
+    /* ignore storage cleanup errors */
+  }
+  const { error } = await supabase.from('et_manuals').delete().eq('id', manual.id);
+  if (error) throw error;
+}
+
+// Open a manual's PDF in a new tab via a short-lived signed URL.
+export async function viewManual(manual) {
+  const url = await signedUrl('manuals', manual.storage_path, 3600);
+  if (url) window.open(url, '_blank', 'noopener');
+  return url;
 }
 
 // Count manuals per machine → { [machineId]: count } for the Edit Machines list.

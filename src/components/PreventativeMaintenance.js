@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { fetchMachines, fetchAllPMTasks, completePMTask } from '../lib/supabase';
-import { daysUntilDue, bucketOf, tally, dueText, intervalLabel, todayISO } from '../lib/pm';
+import { daysUntilDue, bucketOf, tally, dueText, intervalLabel, todayISO, taskUrl } from '../lib/pm';
 import { useToast } from './Toast';
 
 function Counts({ counts, size }) {
@@ -13,7 +13,7 @@ function Counts({ counts, size }) {
   );
 }
 
-export default function PreventativeMaintenance({ onBack }) {
+export default function PreventativeMaintenance({ onBack, initialTaskId }) {
   const [machines, setMachines] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +24,16 @@ export default function PreventativeMaintenance({ onBack }) {
   const [doneBy, setDoneBy] = useState('');
   const [doneOn, setDoneOn] = useState(todayISO());
   const [saving, setSaving] = useState(false);
+  const appliedDeepLink = useRef(false);
   const toast = useToast();
+
+  // Keep the address bar in sync so the task page has a shareable URL.
+  const setUrlForTask = (taskId) => {
+    try {
+      const url = taskId ? `?pmtask=${taskId}` : window.location.pathname;
+      window.history.replaceState(null, '', url);
+    } catch { /* ignore */ }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,6 +50,21 @@ export default function PreventativeMaintenance({ onBack }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Open a shared task once data is loaded.
+  useEffect(() => {
+    if (appliedDeepLink.current || !initialTaskId || loading) return;
+    appliedDeepLink.current = true;
+    const t = tasks.find((x) => String(x.id) === String(initialTaskId));
+    if (t) {
+      setSelMachine(machines.find((m) => m.id === t.machine_id) || { id: t.machine_id, name: 'Machine' });
+      openTask(t);
+    } else {
+      toast('That maintenance task was not found (it may have been deleted)', 'error');
+      setUrlForTask(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTaskId, loading, tasks, machines]);
+
   const tasksFor = (machineId) => tasks.filter((t) => t.machine_id === machineId);
 
   const openTask = (task) => {
@@ -49,6 +73,19 @@ export default function PreventativeMaintenance({ onBack }) {
     setDoneBy('');
     setDoneOn(todayISO());
     setCompleting(false);
+    setUrlForTask(task.id);
+  };
+
+  const closeTask = () => { setSelTask(null); setUrlForTask(null); };
+
+  const copyLink = async () => {
+    if (!selTask) return;
+    try {
+      await navigator.clipboard.writeText(taskUrl(selTask.id));
+      toast('Link copied — send it to whoever should complete this', 'success');
+    } catch {
+      toast('Could not copy automatically. The link is in your address bar.', 'error');
+    }
   };
 
   const submitCompletion = async () => {
@@ -64,6 +101,7 @@ export default function PreventativeMaintenance({ onBack }) {
       toast('Maintenance logged', 'success');
       await load();
       setSelTask(null);
+      setUrlForTask(null);
       setCompleting(false);
     } catch (e) {
       toast(e.message || 'Could not log completion', 'error');
@@ -87,13 +125,14 @@ export default function PreventativeMaintenance({ onBack }) {
     const doneCount = Object.values(checked).filter(Boolean).length;
     return (
       <div className="repair-wrap">
-        <button className="back-link" onClick={() => setSelTask(null)} style={{ marginBottom: 12 }}>
+        <button className="back-link" onClick={closeTask} style={{ marginBottom: 12 }}>
           ← {selMachine?.name || 'Tasks'}
         </button>
 
         <div className="section">
           <div className="section-header">
             <span className="section-title"><span className="section-title-dot" /> {intervalLabel(selTask.interval_days)} checklist</span>
+            <button className="btn btn-ghost btn-sm" onClick={copyLink}>Copy link</button>
           </div>
           <div className="section-body">
             <div className="pm-task-sub">
