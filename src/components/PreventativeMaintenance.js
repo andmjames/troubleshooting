@@ -50,19 +50,21 @@ export default function PreventativeMaintenance({ onBack, initialTaskId }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Open a shared task once data is loaded.
+  // Open a shared task once data is loaded. Inlined (no external fn refs) so the
+  // effect's dependency list is complete and needs no eslint override.
   useEffect(() => {
     if (appliedDeepLink.current || !initialTaskId || loading) return;
     appliedDeepLink.current = true;
     const t = tasks.find((x) => String(x.id) === String(initialTaskId));
     if (t) {
       setSelMachine(machines.find((m) => m.id === t.machine_id) || { id: t.machine_id, name: 'Machine' });
-      openTask(t);
-    } else {
-      toast('That maintenance task was not found (it may have been deleted)', 'error');
-      setUrlForTask(null);
+      setSelTask(t);
+      setChecked({});
+      setDoneBy('');
+      setDoneOn(todayISO());
+      setCompleting(false);
+      try { window.history.replaceState(null, '', `?pmtask=${t.id}`); } catch { /* ignore */ }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTaskId, loading, tasks, machines]);
 
   const tasksFor = (machineId) => tasks.filter((t) => t.machine_id === machineId);
