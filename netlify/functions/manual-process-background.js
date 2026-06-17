@@ -1,42 +1,36 @@
-// Background manual processor (v2 — no native/WASM rendering).
+// Background manual processor (v3 — one page per call for exact page alignment).
 //
-// Earlier this used `mupdf` to rasterize pages, which crashed on load in the
-// Netlify Lambda runtime (leaving manuals stuck at "pending"). This version has
-// no rendering library at all:
-//   1. `pdf-lib` (pure JS) splits the PDF into small page-range chunks.
-//   2. Claude reads each chunk natively (its vision handles scanned drawings that
-//      have no text layer) and returns a concise, searchable summary per page.
-//   3. Summaries go into et_manual_pages.ai_summary, which the FTS trigger indexes.
+// v2 summarized 15-page batches and mapped summaries to pages by array position.
+// If Claude returned fewer items (e.g. skipped a near-blank page) or shifted order,
+// every later summary in the batch landed on the WRONG page number — so a
+// "troubleshooting" summary could end up tagged to a parts-list page. That made the
+// troubleshooter cite/show the wrong manual page.
 //
-// Chunks are processed CHUNK_PAGES at a time; the function re-invokes itself for
-// the next chunk so even a 400-page manual stays within the 15-minute limit.
+// This version summarizes ONE page per Claude request, so each summary is bound to
+// its exact page number with no positional guessing. Pages are processed in small
+// concurrent batches for speed, with the same time-budget re-invoke for big manuals.
 const { admin, callClaude } = require('./_shared');
 const { PDFDocument } = require('pdf-lib');
 
-const CHUNK_PAGES = 15;            // pages per Claude request (well under the 100-page limit)
+const BATCH = 5;                  // pages summarized concurrently per round
 const MODEL = 'claude-haiku-4-5-20251001';
 
-function parseJsonArray(text) {
-  if (!text) return [];
-  let t = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-  const start = t.indexOf('[');
-  const end = t.lastIndexOf(']');
-  if (start !== -1 && end !== -1 && end > start) t = t.slice(start, end + 1);
-  try { return JSON.parse(t); } catch { return []; }
+// Extract a single page as its own PDF (bytes). Done sequentially — pdf-lib isn't
+// safe to use concurrently on one source document.
+async function extractPageBytes(src, pageIndex) {
+  const one = await PDFDocument.create();
+  const [copied] = await one.copyPages(src, [pageIndex]);
+  one.addPage(copied);
+  return one.save();
 }
 
-async function summarizeChunk(subBytes, startPage, count, machineName) {
-  const b64 = Buffer.from(subBytes).toString('base64');
-  const prompt = `These are pages ${startPage}–${startPage + count - 1} of an equipment manual for a "${machineName}". There are ${count} pages in this batch, in order.
-
-For EACH page, write a concise searchable summary (max ~50 words) capturing: part numbers, assembly/component names, the type of content (e.g. parts diagram, wiring schematic, procedure, parts list), and any key visible text — so a maintenance tech can find this page by searching.
-
-Return ONLY a JSON array of exactly ${count} objects in page order, no prose, no code fences:
-[{"summary":"..."}, {"summary":"..."}, ...]`;
-
+// Summarize a single page (given its PDF bytes). Returns a string (or null).
+async function summarizePageBytes(bytes, machineName) {
+  const b64 = Buffer.from(bytes).toString('base64');
+  const prompt = `This is a single page from an equipment manual for a "${machineName}". Write a concise searchable summary (max ~55 words) capturing: part numbers, assembly/component names, the kind of content (parts diagram, wiring schematic, step-by-step procedure, parts list, troubleshooting table, threading diagram, etc.), and key visible text — so a maintenance tech can find this exact page by searching. If the page is essentially blank, reply with "(blank page)". Return ONLY the summary text, no preamble.`;
   const data = await callClaude({
     model: MODEL,
-    max_tokens: 2500,
+    max_tokens: 300,
     messages: [{
       role: 'user',
       content: [
@@ -45,8 +39,8 @@ Return ONLY a JSON array of exactly ${count} objects in page order, no prose, no
       ],
     }],
   });
-  const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
-  return parseJsonArray(text);
+  const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join(' ').trim();
+  return text || null;
 }
 
 exports.handler = async (event) => {
@@ -82,44 +76,45 @@ exports.handler = async (event) => {
       await sb.from('et_manuals').update({ page_count: pageCount }).eq('id', manualId);
     }
 
-    let cursor = startPage;            // 1-based page to start this chunk
+    let cursor = startPage;            // 1-based page to process next
     while (cursor <= pageCount) {
-      const endPage = Math.min(cursor + CHUNK_PAGES - 1, pageCount);
-      const count = endPage - cursor + 1;
+      const batchEnd = Math.min(cursor + BATCH - 1, pageCount);
+      const pageNums = [];
+      for (let p = cursor; p <= batchEnd; p++) pageNums.push(p);
 
-      // Build a sub-PDF with just this chunk's pages.
-      const sub = await PDFDocument.create();
-      const indices = [];
-      for (let p = cursor - 1; p <= endPage - 1; p++) indices.push(p);
-      const copied = await sub.copyPages(src, indices);
-      copied.forEach((pg) => sub.addPage(pg));
-      const subBytes = await sub.save();
+      // Step 1: extract each page's bytes sequentially (pdf-lib, single source doc).
+      const pageBytes = [];
+      for (const pn of pageNums) {
+        try { pageBytes.push({ pn, bytes: await extractPageBytes(src, pn - 1) }); }
+        catch { pageBytes.push({ pn, bytes: null }); }
+      }
 
-      // Ask Claude for one summary per page (by order).
-      let summaries = [];
-      try { summaries = await summarizeChunk(subBytes, cursor, count, manual.title || 'machine'); }
-      catch (e) { summaries = []; /* keep going; store blank summaries for this chunk */ }
-
-      const rows = [];
-      for (let i = 0; i < count; i++) {
-        const summary = (summaries[i] && (summaries[i].summary || summaries[i].text)) || null;
-        rows.push({
+      // Step 2: summarize the pages concurrently. Each result keeps its exact page
+      // number, so a summary can never drift onto the wrong page.
+      const rows = await Promise.all(pageBytes.map(async ({ pn, bytes }) => {
+        let summary = null;
+        if (bytes) {
+          try { summary = await summarizePageBytes(bytes, manual.title || 'machine'); }
+          catch { summary = null; }
+        }
+        if (summary && /^\(?\s*blank page\s*\)?$/i.test(summary.trim())) summary = null;
+        return {
           manual_id: manualId,
           machine_id: manual.machine_id,
-          page_number: cursor + i,
+          page_number: pn,
           ai_summary: summary,
           text_content: summary,
           image_path: null,
-        });
-      }
-      if (rows.length) await sb.from('et_manual_pages').insert(rows);
-      await sb.from('et_manuals').update({ pages_done: endPage }).eq('id', manualId);
+        };
+      }));
 
-      cursor = endPage + 1;
+      await sb.from('et_manual_pages').insert(rows);
+      await sb.from('et_manuals').update({ pages_done: batchEnd }).eq('id', manualId);
+
+      cursor = batchEnd + 1;
 
       // If there's more to do and we're running low on time, hand the rest to a
-      // fresh invocation. AWAIT the trigger so it's actually sent before we return
-      // (un-awaited work is killed the moment the handler returns).
+      // fresh invocation. AWAIT the trigger so it's actually sent before we return.
       if (cursor <= pageCount && Date.now() - t0 > RUN_BUDGET_MS) {
         const base = process.env.URL || `https://${event.headers.host}`;
         const resp = await fetch(`${base}/.netlify/functions/manual-process-background`, {
