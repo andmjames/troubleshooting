@@ -26,7 +26,8 @@ RULES — follow exactly:
 - Each bullet is one concrete thing to check or do, most likely cause first.
 - Plain shop-floor language. No long preambles, no safety lectures unless a step is genuinely dangerous (then one short caution).
 - If you genuinely need one piece of info to narrow it down, ask a single short question instead of guessing.
-- Never invent part numbers, log dates, or manual pages. Only cite what you were given.`;
+- Never invent part numbers, log dates, or manual pages. Only cite what you were given.
+- When you reference a manual page, cite the exact page number shown in the MANUAL EXCERPTS above (e.g. "p.77"). Do NOT cite a manual page number that does not appear in those excerpts — if the excerpts don't cover it, describe the step without a page citation.`;
 
 async function runJob(sb, job) {
   const { machineName, messages = [] } = job.payload || {};
@@ -50,7 +51,7 @@ async function runJob(sb, job) {
   // 1+2. Search repair logs (prioritized) and manual pages in parallel
   const [logsRes, pagesRes] = await Promise.all([
     sb.rpc('et_search_repair_logs', { p_machine_id: machineId, p_query: query, p_limit: 6 }),
-    sb.rpc('et_search_manual_pages', { p_machine_id: machineId, p_query: query, p_limit: 5 }),
+    sb.rpc('et_search_manual_pages', { p_machine_id: machineId, p_query: query, p_limit: 8 }),
   ]);
   const logs = logsRes.data || [];
   const pages = pagesRes.data || [];
@@ -133,10 +134,22 @@ async function runJob(sb, job) {
   const answer = textOf(data);
 
   // 4. Assemble source chips + images.
-  // Repair photos are returned as ready signed image URLs. Manual pages are returned
-  // as a reference to the PDF + page number; the browser renders that page with pdf.js.
+  // Repair photos come back as signed image URLs. Manual pages come back as a
+  // reference to the PDF + page number, which the browser renders with pdf.js.
+  //
+  // Only show the manual pages the answer actually cites (e.g. "p.130"), and only
+  // when that page was among the ones we retrieved into context — so every thumbnail
+  // matches what the answer is talking about, instead of whatever ranked highest in
+  // the text search. (Showing a page the answer never references was the source of
+  // the "irrelevant thumbnails" problem.)
+  const citedPages = new Set();
+  const pageRe = /(?:\bp\.?\s*|\bpages?\s+|\bpg\.?\s*)(\d{1,4})\b/gi;
+  let pm;
+  while ((pm = pageRe.exec(answer)) !== null) citedPages.add(parseInt(pm[1], 10));
+
   const sources = [];
   const images = [];
+
   for (const l of logs.slice(0, 3)) {
     const date = l.created_at ? new Date(l.created_at).toLocaleDateString() : '';
     sources.push({ type: 'log', label: `Repair log · ${date}` });
@@ -146,8 +159,10 @@ async function runJob(sb, job) {
       if (url) images.push({ kind: 'photo', url });
     }
   }
+
+  const citedManualPages = pages.filter((p) => citedPages.has(p.page_number));
   const pdfUrlCache = {};
-  for (const p of pages.slice(0, 3)) {
+  for (const p of citedManualPages) {
     sources.push({ type: 'manual', label: `${p.manual_title} · p.${p.page_number}` });
     if (p.storage_path) {
       if (!(p.storage_path in pdfUrlCache)) {
@@ -157,12 +172,13 @@ async function runJob(sb, job) {
       if (url) images.push({ kind: 'manual-page', url, page: p.page_number, label: `${p.manual_title} · p.${p.page_number}` });
     }
   }
+
   const seen = new Set();
   const uniqueImages = images.filter((im) => {
     const k = im.kind === 'manual-page' ? `${im.url}#${im.page}` : im.url;
     if (!k || seen.has(k)) return false;
     seen.add(k); return true;
-  }).slice(0, 4);
+  }).slice(0, 6);
 
   return { answer, sources, images: uniqueImages };
 }
