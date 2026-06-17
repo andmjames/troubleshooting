@@ -19,7 +19,7 @@ const { admin, callClaude, textOf, sign } = require('./_shared');
 const SYSTEM = `You are a maintenance troubleshooting assistant for PMI Tape, a tape manufacturing plant. You help technicians fix factory equipment.
 
 RULES — follow exactly:
-- ALWAYS prioritize the PAST REPAIR LOGS provided. If a past repair matches the problem, lead with it: say what was wrong before and how it was fixed, and reference it (e.g. "Past repair from 3/14: …").
+- ALWAYS prioritize the PAST REPAIR LOGS provided. If a past repair matches the problem, lead with it: say what was wrong before and how it was fixed, and reference it with its full date exactly as shown (e.g. "Past repair from 6/17/2026: …"). If NO past repair genuinely matches, say so plainly and do not reference a repair date.
 - After the logs, use the MANUAL EXCERPTS, then general/web knowledge.
 - When you search the web, include the machine's MANUFACTURER and MODEL NUMBER in your query (e.g. "<manufacturer> <model> <problem>"), so results are specific to this exact equipment rather than a generic machine name.
 - Keep it SHORT. A few bullet points only. Do not overwhelm the technician.
@@ -28,6 +28,15 @@ RULES — follow exactly:
 - If you genuinely need one piece of info to narrow it down, ask a single short question instead of guessing.
 - Never invent part numbers, log dates, or manual pages. Only cite what you were given.
 - When you reference a manual page, cite the exact page number shown in the MANUAL EXCERPTS above (e.g. "p.77"). Do NOT cite a manual page number that does not appear in those excerpts — if the excerpts don't cover it, describe the step without a page citation.`;
+
+// Consistent M/D/YYYY formatting, independent of the Lambda's locale. Used both for
+// the dates shown to Claude and for matching the dates it cites back.
+function fmtMDY(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+}
 
 async function runJob(sb, job) {
   const { machineName, messages = [] } = job.payload || {};
@@ -61,7 +70,7 @@ async function runJob(sb, job) {
   if (logs.length) {
     context += '=== PAST REPAIR LOGS (prioritize these) ===\n';
     logs.forEach((l, i) => {
-      const date = l.created_at ? new Date(l.created_at).toLocaleDateString() : 'unknown date';
+      const date = l.created_at ? fmtMDY(l.created_at) : 'unknown date';
       context += `\n[LOG ${i + 1}] (${date}${l.technician ? ', by ' + l.technician : ''})\n`;
       context += `Problem: ${l.problem}\n`;
       if (l.solution) context += `Fix: ${l.solution}\n`;
@@ -137,22 +146,31 @@ async function runJob(sb, job) {
   // Repair photos come back as signed image URLs. Manual pages come back as a
   // reference to the PDF + page number, which the browser renders with pdf.js.
   //
-  // Only show the manual pages the answer actually cites (e.g. "p.130"), and only
-  // when that page was among the ones we retrieved into context — so every thumbnail
-  // matches what the answer is talking about, instead of whatever ranked highest in
-  // the text search. (Showing a page the answer never references was the source of
-  // the "irrelevant thumbnails" problem.)
+  // Only show what the answer ACTUALLY references:
+  //   • manual pages it cites by number ("p.130")
+  //   • repair logs it cites by date ("Past repair from 6/17/2026")
+  // If the answer says no past repair matched, no log chips/photos appear; if it
+  // cites no manual page, no manual thumbnails appear.
   const citedPages = new Set();
   const pageRe = /(?:\bp\.?\s*|\bpages?\s+|\bpg\.?\s*)(\d{1,4})\b/gi;
   let pm;
   while ((pm = pageRe.exec(answer)) !== null) citedPages.add(parseInt(pm[1], 10));
 
+  const citedDates = new Set();
+  const dateRe = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/g;   // require a year to avoid matching "3-1/3-2" figure refs
+  let dmatch;
+  while ((dmatch = dateRe.exec(answer)) !== null) {
+    let y = parseInt(dmatch[3], 10); if (y < 100) y += 2000;
+    citedDates.add(`${parseInt(dmatch[1], 10)}/${parseInt(dmatch[2], 10)}/${y}`);
+  }
+
   const sources = [];
   const images = [];
 
-  for (const l of logs.slice(0, 3)) {
-    const date = l.created_at ? new Date(l.created_at).toLocaleDateString() : '';
-    sources.push({ type: 'log', label: `Repair log · ${date}` });
+  // Repair logs: only the ones the answer cited (by date).
+  const citedLogs = logs.filter((l) => l.created_at && citedDates.has(fmtMDY(l.created_at)));
+  for (const l of citedLogs.slice(0, 3)) {
+    sources.push({ type: 'log', label: `Repair log · ${fmtMDY(l.created_at)}` });
     const photos = [...(l.problem_photos || []), ...(l.solution_photos || [])];
     for (const ph of photos.slice(0, 2)) {
       const url = await sign(sb, 'repair-photos', ph.path);

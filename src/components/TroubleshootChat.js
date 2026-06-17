@@ -164,11 +164,12 @@ export default function TroubleshootChat({ machine, onBack, onClose }) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
-  const detailParts = [];
-  if (machine.model_number) detailParts.push(`Model ${machine.model_number}`);
-  if (machine.serial_number) detailParts.push(`S/N ${machine.serial_number}`);
-  if (machine.manufacturer_phone) detailParts.push(machine.manufacturer_phone);
-  if (machine.manufacturer_email) detailParts.push(machine.manufacturer_email);
+  const idParts = [];
+  if (machine.model_number) idParts.push(`Model ${machine.model_number}`);
+  if (machine.serial_number) idParts.push(`S/N ${machine.serial_number}`);
+  const telHref = machine.manufacturer_phone
+    ? `tel:${String(machine.manufacturer_phone).replace(/[^\d+]/g, '')}`
+    : null;
 
   return (
     <div className="chat-wrap">
@@ -177,8 +178,21 @@ export default function TroubleshootChat({ machine, onBack, onClose }) {
           <div className="chat-context-top">
             Troubleshooting <span className="chat-context-machine">{machine.name}</span>
           </div>
-          {detailParts.length > 0 && (
-            <div className="chat-context-details">{detailParts.join('  ·  ')}</div>
+          {idParts.length > 0 && (
+            <div className="chat-context-details">{idParts.join('  ·  ')}</div>
+          )}
+          {(machine.manufacturer_phone || machine.manufacturer_email) && (
+            <div className="chat-contact">
+              <span className="chat-contact-label">Manufacturer Contact Info</span>
+              <span className="chat-contact-items">
+                {machine.manufacturer_phone && (
+                  <a className="chat-contact-link" href={telHref}>{machine.manufacturer_phone}</a>
+                )}
+                {machine.manufacturer_email && (
+                  <a className="chat-contact-link" href={`mailto:${machine.manufacturer_email}`}>{machine.manufacturer_email}</a>
+                )}
+              </span>
+            </div>
           )}
         </div>
         <div className="chat-context-actions">
