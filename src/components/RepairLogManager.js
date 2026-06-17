@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { fetchRepairLogs, updateRepairLog, removeRepairLog, signedUrl, uploadRepairPhoto } from '../lib/supabase';
+import { fetchRepairLogs, fetchAllRepairLogs, updateRepairLog, removeRepairLog, signedUrl, uploadRepairPhoto } from '../lib/supabase';
 import { IconPlus } from '../lib/icons';
 import Lightbox from './Lightbox';
 import { useToast } from './Toast';
@@ -63,7 +63,7 @@ const fmtDate = (iso) => {
   try { return new Date(iso).toLocaleDateString(); } catch { return ''; }
 };
 
-export default function RepairLogManager({ machine, onBack }) {
+export default function RepairLogManager({ machine, onBack, allMachines = false }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);     // log id being edited, or null
@@ -84,13 +84,13 @@ export default function RepairLogManager({ machine, onBack }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setLogs(await fetchRepairLogs(machine.id));
+      setLogs(await (allMachines ? fetchAllRepairLogs() : fetchRepairLogs(machine.id)));
     } catch (e) {
       toast(e.message || 'Could not load repair logs', 'error');
     } finally {
       setLoading(false);
     }
-  }, [machine.id, toast]);
+  }, [allMachines, machine, toast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -199,10 +199,14 @@ export default function RepairLogManager({ machine, onBack }) {
   // ── List view ──
   return (
     <div className="repair-wrap">
-      <button className="back-link" onClick={onBack} style={{ marginBottom: 12 }}>← Edit Machines</button>
+      <button className="back-link" onClick={onBack} style={{ marginBottom: 12 }}>
+        {allMachines ? '← Back' : '← Edit Machines'}
+      </button>
 
       <div className="repair-context-bar">
-        Repair log for <span className="repair-context-machine">{machine.name}</span>
+        {allMachines
+          ? <>All repair logs <span className="repair-context-machine">(every machine)</span></>
+          : <>Repair log for <span className="repair-context-machine">{machine.name}</span></>}
       </div>
 
       <div className="section">
@@ -215,7 +219,7 @@ export default function RepairLogManager({ machine, onBack }) {
           {loading ? (
             <div className="loading-state"><span className="spinner" /> Loading…</div>
           ) : logs.length === 0 ? (
-            <div className="picker-empty">No repair logs for this machine yet.</div>
+            <div className="picker-empty">{allMachines ? 'No repair logs recorded yet.' : 'No repair logs for this machine yet.'}</div>
           ) : (
             <div className="log-list">
               {logs.map((log) => {
@@ -223,6 +227,7 @@ export default function RepairLogManager({ machine, onBack }) {
                 const sPhotos = log.solution_photos || [];
                 return (
                   <div key={log.id} className="log-entry">
+                    {allMachines && <div className="log-entry-machine">{log.machine_name}</div>}
                     <div className="log-entry-head">
                       <span className="log-entry-date">
                         {fmtDate(log.created_at)}{log.technician ? ` · ${log.technician}` : ''}

@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { fetchPMTasks, addPMTask, updatePMTask, removePMTask } from '../lib/supabase';
-import { INTERVALS, intervalLabel, taskUrl } from '../lib/pm';
+import { INTERVALS, intervalLabel, taskTitle, taskUrl } from '../lib/pm';
 import { useToast } from './Toast';
 
-const BLANK = { bullets: '', interval_days: 90 };
+const BLANK = { name: '', bullets: '', interval_days: 90 };
 
 // Convert checklist array <-> textarea text (one bullet per line)
 const toText = (arr) => (Array.isArray(arr) ? arr.join('\n') : '');
@@ -33,7 +33,7 @@ export default function PMEditor({ machine, onBack }) {
 
   const startNew = () => { setForm(BLANK); setEditing('new'); };
   const startEdit = (t) => {
-    setForm({ bullets: toText(t.checklist), interval_days: t.interval_days });
+    setForm({ name: t.name || '', bullets: toText(t.checklist), interval_days: t.interval_days });
     setEditing(t.id);
   };
   const cancel = () => { setEditing(null); setForm(BLANK); };
@@ -47,10 +47,10 @@ export default function PMEditor({ machine, onBack }) {
     setSaving(true);
     try {
       if (editing === 'new') {
-        await addPMTask({ machine_id: machine.id, checklist, interval_days: form.interval_days });
+        await addPMTask({ machine_id: machine.id, name: form.name.trim(), checklist, interval_days: form.interval_days });
         toast('Task added', 'success');
       } else {
-        await updatePMTask(editing, { checklist, interval_days: form.interval_days });
+        await updatePMTask(editing, { name: form.name.trim(), checklist, interval_days: form.interval_days });
         toast('Task updated', 'success');
       }
       cancel();
@@ -101,6 +101,15 @@ export default function PMEditor({ machine, onBack }) {
           </div>
           <div className="section-body">
             <div className="field-group">
+              <label className="field-label">Task name</label>
+              <input
+                className="field-input"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Monthly lubrication"
+              />
+            </div>
+            <div className="field-group" style={{ marginTop: 12 }}>
               <label className="field-label">Checklist — one item per line</label>
               <textarea
                 className="repair-textarea"
@@ -148,9 +157,9 @@ export default function PMEditor({ machine, onBack }) {
                     return (
                       <div key={t.id} className="machine-edit-row">
                         <div className="machine-edit-info">
-                          <div className="machine-edit-name">{intervalLabel(t.interval_days)}</div>
+                          <div className="machine-edit-name">{t.name?.trim() || intervalLabel(t.interval_days)}</div>
                           <div className="machine-edit-meta">
-                            {items.length} item{items.length === 1 ? '' : 's'}
+                            {intervalLabel(t.interval_days)} · {items.length} item{items.length === 1 ? '' : 's'}
                           </div>
                         </div>
                         <div className="machine-edit-actions">
@@ -177,7 +186,7 @@ export default function PMEditor({ machine, onBack }) {
             </div>
             <div className="modal-body">
               <p style={{ fontSize: 14, lineHeight: 1.6 }}>
-                This removes the {intervalLabel(confirmDel.interval_days)} task and its completion history. This can't be undone.
+                This removes the "{taskTitle(confirmDel)}" task and its completion history. This can't be undone.
               </p>
             </div>
             <div className="modal-footer">

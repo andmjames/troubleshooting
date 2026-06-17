@@ -78,6 +78,7 @@ export default function App() {
     : view === 'pm' ? 'Preventative Maintenance'
     : view === 'pmEdit' ? 'Preventative Maintenance'
     : view === 'repairLogs' ? 'Repair Log'
+    : view === 'repairLogsAll' ? 'Repair Logs'
     : view === 'manuals' ? 'Manuals'
     : mode === 'repair' ? 'Log a Repair'
     : mode === 'manual' ? 'Add a Manual'
@@ -99,7 +100,13 @@ export default function App() {
             {view === 'home' && <Home onChoose={choose} />}
 
             {view === 'picker' && (
-              <MachinePicker mode={mode} onSelect={pickMachine} onBack={goHome} />
+              <MachinePicker
+                mode={mode}
+                onSelect={pickMachine}
+                onBack={goHome}
+                actionLabel={mode === 'repair' ? 'View/Edit Repair Log Entries' : undefined}
+                onAction={mode === 'repair' ? () => setView('repairLogsAll') : undefined}
+              />
             )}
 
             {view === 'chat' && machine && (
@@ -131,6 +138,10 @@ export default function App() {
 
             {view === 'repairLogs' && logsMachine && (
               <RepairLogManager machine={logsMachine} onBack={() => setView('edit')} />
+            )}
+
+            {view === 'repairLogsAll' && (
+              <RepairLogManager allMachines onBack={() => setView('picker')} />
             )}
 
             {view === 'manuals' && manualsMachine && (

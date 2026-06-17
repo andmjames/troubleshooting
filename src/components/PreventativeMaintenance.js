@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { fetchMachines, fetchAllPMTasks, completePMTask } from '../lib/supabase';
-import { daysUntilDue, bucketOf, tally, dueText, intervalLabel, todayISO, taskUrl } from '../lib/pm';
+import { daysUntilDue, bucketOf, tally, dueText, intervalLabel, taskTitle, todayISO, taskUrl } from '../lib/pm';
 import { useToast } from './Toast';
 
 function Counts({ counts, size }) {
@@ -133,7 +133,7 @@ export default function PreventativeMaintenance({ onBack, initialTaskId }) {
 
         <div className="section">
           <div className="section-header">
-            <span className="section-title"><span className="section-title-dot" /> {intervalLabel(selTask.interval_days)} checklist</span>
+            <span className="section-title"><span className="section-title-dot" /> {taskTitle(selTask)} checklist</span>
             <button className="btn btn-ghost btn-sm" onClick={copyLink}>Copy link</button>
           </div>
           <div className="section-body">
@@ -170,7 +170,7 @@ export default function PreventativeMaintenance({ onBack, initialTaskId }) {
           <div className="modal-overlay" onClick={() => !saving && setCompleting(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <span className="modal-title">Complete {intervalLabel(selTask.interval_days)} maintenance</span>
+                <span className="modal-title">Complete {taskTitle(selTask)}</span>
                 <button className="modal-close" onClick={() => !saving && setCompleting(false)}>×</button>
               </div>
               <div className="modal-body">
@@ -218,8 +218,8 @@ export default function PreventativeMaintenance({ onBack, initialTaskId }) {
                     <button key={t.id} className="pm-task-row" onClick={() => openTask(t)}>
                       <span className={`pm-dot pm-dot-${b}`} />
                       <span className="pm-task-info">
-                        <span className="pm-task-name">{intervalLabel(t.interval_days)}</span>
-                        <span className="pm-task-meta">{dueText(d)}</span>
+                        <span className="pm-task-name">{taskTitle(t)}</span>
+                        <span className="pm-task-meta">{intervalLabel(t.interval_days)} · {dueText(d)}</span>
                       </span>
                       <span className="pm-task-arrow">›</span>
                     </button>

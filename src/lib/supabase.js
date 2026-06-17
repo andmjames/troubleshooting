@@ -10,7 +10,7 @@ export async function fetchMachines() {
   const { data, error } = await supabase
     .from('et_machines')
     .select('id, name, manufacturer, model_number, manufacturer_phone, manufacturer_email, serial_number')
-    .order('sort_order', { ascending: true });
+    .order('name', { ascending: true });
   if (error) throw error;
   return data || [];
 }
@@ -73,6 +73,21 @@ export async function fetchRepairLogs(machineId) {
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
+}
+
+// All repair logs across every machine, newest first, each tagged with its machine name.
+export async function fetchAllRepairLogs() {
+  const [logsRes, machines] = await Promise.all([
+    supabase
+      .from('et_repair_logs')
+      .select('id, machine_id, problem, solution, details, technician, problem_photos, solution_photos, created_at')
+      .order('created_at', { ascending: false }),
+    fetchMachines(),
+  ]);
+  if (logsRes.error) throw logsRes.error;
+  const nameById = {};
+  (machines || []).forEach((m) => { nameById[m.id] = m.name; });
+  return (logsRes.data || []).map((r) => ({ ...r, machine_name: nameById[r.machine_id] || 'Unknown machine' }));
 }
 
 // Edit a repair log entry.
@@ -305,11 +320,12 @@ export async function fetchAllPMTasks() {
   return data || [];
 }
 
-export async function addPMTask({ machine_id, checklist, interval_days }) {
+export async function addPMTask({ machine_id, name, checklist, interval_days }) {
   const { data, error } = await supabase
     .from('et_pm_tasks')
     .insert({
       machine_id,
+      name: name || null,
       checklist: checklist || [],
       interval_days,
     })
@@ -321,6 +337,7 @@ export async function addPMTask({ machine_id, checklist, interval_days }) {
 
 export async function updatePMTask(id, fields) {
   const payload = {};
+  if ('name' in fields) payload.name = fields.name || null;
   if ('checklist' in fields) payload.checklist = fields.checklist || [];
   if ('interval_days' in fields) payload.interval_days = fields.interval_days;
   const { data, error } = await supabase

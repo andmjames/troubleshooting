@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { fetchMachines } from '../lib/supabase';
 import { useToast } from './Toast';
 
-export default function MachinePicker({ mode, onSelect, onBack }) {
+export default function MachinePicker({ mode, onSelect, onBack, actionLabel, onAction }) {
   const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -39,8 +39,15 @@ export default function MachinePicker({ mode, onSelect, onBack }) {
     <div className="picker-wrap">
       <button className="back-link" onClick={onBack} style={{ marginBottom: 12 }}>← Home</button>
       <div className="picker-card">
-        <div className="picker-eyebrow">{title}</div>
-        <h1 className="picker-title">Select a machine</h1>
+        <div className="picker-head">
+          <div>
+            <div className="picker-eyebrow">{title}</div>
+            <h1 className="picker-title">Select a machine</h1>
+          </div>
+          {actionLabel && onAction && (
+            <button className="btn btn-sm" onClick={onAction}>{actionLabel}</button>
+          )}
+        </div>
         <p className="picker-sub">{sub}</p>
 
         <input

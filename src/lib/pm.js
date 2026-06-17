@@ -12,6 +12,12 @@ export function intervalLabel(days) {
   return `Every ${days} days`;
 }
 
+// Display title for a task: its name if set, otherwise the interval label.
+export function taskTitle(task) {
+  const n = task?.name?.trim();
+  return n || intervalLabel(task?.interval_days);
+}
+
 // Days from today until a task is next due. Negative = overdue.
 export function daysUntilDue(task, today = new Date()) {
   const base = task.last_completed ? new Date(task.last_completed + 'T00:00:00') : new Date();
