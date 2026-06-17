@@ -49,6 +49,22 @@ export function dueText(days) {
   return `Due in ${days} day${days === 1 ? '' : 's'}`;
 }
 
+// "Last completed on MM/DD/YY (N days ago)", or a note if never completed.
+export function lastCompletedText(task) {
+  if (!task?.last_completed) return 'Not completed yet';
+  const d = new Date(task.last_completed + 'T00:00:00');
+  if (isNaN(d)) return 'Not completed yet';
+  const today = new Date();
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const d0 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const ago = Math.round((t0 - d0) / 86400000);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yy = String(d.getFullYear()).slice(-2);
+  const agoText = ago <= 0 ? 'today' : `${ago} day${ago === 1 ? '' : 's'} ago`;
+  return `Last completed on ${mm}/${dd}/${yy} (${agoText})`;
+}
+
 // Local YYYY-MM-DD for date inputs (avoids UTC off-by-one).
 export function todayISO() {
   const d = new Date();

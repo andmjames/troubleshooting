@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { fetchMachines, fetchAllPMTasks, completePMTask } from '../lib/supabase';
-import { daysUntilDue, bucketOf, tally, dueText, intervalLabel, taskTitle, todayISO, taskUrl } from '../lib/pm';
+import { daysUntilDue, bucketOf, tally, dueText, intervalLabel, taskTitle, lastCompletedText, todayISO, taskUrl } from '../lib/pm';
 import { useToast } from './Toast';
 
 function Counts({ counts, size }) {
@@ -220,6 +220,7 @@ export default function PreventativeMaintenance({ onBack, initialTaskId }) {
                       <span className="pm-task-info">
                         <span className="pm-task-name">{taskTitle(t)}</span>
                         <span className="pm-task-meta">{intervalLabel(t.interval_days)} · {dueText(d)}</span>
+                        <span className="pm-task-meta">{lastCompletedText(t)}</span>
                       </span>
                       <span className="pm-task-arrow">›</span>
                     </button>
