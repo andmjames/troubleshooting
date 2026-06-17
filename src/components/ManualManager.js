@@ -31,6 +31,18 @@ export default function ManualManager({ machine, onBack, onUpload }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // While any manual is still processing, quietly refresh so progress and the final
+  // "ready" state appear without the user having to leave and come back.
+  const refresh = useCallback(async () => {
+    try { setManuals(await fetchManualsForMachine(machine.id)); } catch { /* ignore */ }
+  }, [machine.id]);
+  const anyProcessing = manuals.some((m) => m.status === 'processing' || m.status === 'pending');
+  useEffect(() => {
+    if (!anyProcessing) return undefined;
+    const id = setInterval(refresh, 3000);
+    return () => clearInterval(id);
+  }, [anyProcessing, refresh]);
+
   const view = async (m) => {
     setOpening(m.id);
     try {
@@ -99,9 +111,9 @@ export default function ManualManager({ machine, onBack, onUpload }) {
                     <button className="btn btn-sm" onClick={() => view(m)} disabled={!m.storage_path || opening === m.id}>
                       {opening === m.id ? <><span className="spinner" /> Opening…</> : 'View'}
                     </button>
-                    {m.status !== 'ready' && (
-                      <button className="btn btn-sm" onClick={() => retry(m)}>Retry</button>
-                    )}
+                    <button className="btn btn-sm" onClick={() => retry(m)} disabled={m.status === 'processing' || m.status === 'pending'}>
+                      {m.status === 'ready' ? 'Reprocess' : m.status === 'error' ? 'Retry' : 'Processing…'}
+                    </button>
                     <button className="btn btn-sm btn-danger" onClick={() => setConfirmDel(m)}>Delete</button>
                   </div>
                 </div>
