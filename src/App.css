@@ -593,6 +593,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   text-decoration: none; white-space: nowrap;
 }
 .chat-contact-link:hover { text-decoration: underline; }
+.chat-contact-text { font-size: 13px; color: var(--text2); white-space: nowrap; }
 .chat-context-bar .btn-sm { flex-shrink: 0; }
 .chat-context-actions { display: flex; gap: 6px; flex-shrink: 0; }
 

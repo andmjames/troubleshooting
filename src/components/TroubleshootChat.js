@@ -225,7 +225,7 @@ export default function TroubleshootChat({ machine, onClose }) {
                   <a className="chat-contact-link" href={telHref}>{machine.manufacturer_phone}</a>
                 )}
                 {machine.manufacturer_email && (
-                  <a className="chat-contact-link" href={`mailto:${machine.manufacturer_email}`}>{machine.manufacturer_email}</a>
+                  <span className="chat-contact-text">{machine.manufacturer_email}</span>
                 )}
               </span>
             </div>
