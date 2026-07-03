@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { IconSend, IconCamera } from '../lib/icons';
-import { signedUrl, createTroubleshootJob, pollTroubleshootJob, uploadTroubleshootPhoto, removeTroubleshootPhoto } from '../lib/supabase';
+import { signedUrl, createTroubleshootJob, pollTroubleshootJob, uploadTroubleshootPhoto, removeTroubleshootPhoto, fetchManualsForMachine, viewManual } from '../lib/supabase';
 import { compressImage } from '../lib/image';
 import { renderPdfPage } from '../lib/pdfRender';
 import Lightbox from './Lightbox';
@@ -61,7 +61,7 @@ function Thumb({ img, onOpen }) {
   return <img className="msg-thumb" src={src} alt={img.label || ''} onClick={() => onOpen(src)} />;
 }
 
-export default function TroubleshootChat({ machine, onBack, onClose }) {
+export default function TroubleshootChat({ machine, onClose }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -72,6 +72,10 @@ export default function TroubleshootChat({ machine, onBack, onClose }) {
   const [busy, setBusy] = useState(false);
   const [lightbox, setLightbox] = useState(null);
   const [attachments, setAttachments] = useState([]); // { id, previewUrl, path, status }
+  const [manualsOpen, setManualsOpen] = useState(false);
+  const [manualsList, setManualsList] = useState([]);
+  const [manualsLoading, setManualsLoading] = useState(false);
+  const [openingManual, setOpeningManual] = useState(null);
   const scrollRef = useRef(null);
   const taRef = useRef(null);
   const fileRef = useRef(null);
@@ -164,6 +168,38 @@ export default function TroubleshootChat({ machine, onBack, onClose }) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
+  const openManuals = async () => {
+    setManualsOpen(true);
+    setManualsLoading(true);
+    try {
+      setManualsList(await fetchManualsForMachine(machine.id));
+    } catch (e) {
+      toast(e.message || 'Could not load manuals', 'error');
+    } finally {
+      setManualsLoading(false);
+    }
+  };
+
+  const openManualPdf = async (m) => {
+    setOpeningManual(m.id);
+    try {
+      const url = await viewManual(m);
+      if (!url) toast('Could not open this manual', 'error');
+    } catch (e) {
+      toast(e.message || 'Could not open this manual', 'error');
+    } finally {
+      setOpeningManual(null);
+    }
+  };
+
+  const manualStatus = (m) => {
+    if (m.status === 'ready') return `${m.page_count || 0} pages`;
+    if (m.status === 'processing') return m.page_count ? `processing ${m.pages_done || 0}/${m.page_count}` : 'processing…';
+    if (m.status === 'pending') return 'queued…';
+    if (m.status === 'error') return 'not processed';
+    return m.status || '';
+  };
+
   const idParts = [];
   if (machine.model_number) idParts.push(`Model ${machine.model_number}`);
   if (machine.serial_number) idParts.push(`S/N ${machine.serial_number}`);
@@ -196,7 +232,7 @@ export default function TroubleshootChat({ machine, onBack, onClose }) {
           )}
         </div>
         <div className="chat-context-actions">
-          <button className="btn btn-ghost btn-sm" onClick={onBack}>Change machine</button>
+          <button className="btn btn-ghost btn-sm" onClick={openManuals}>View manuals</button>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
         </div>
       </div>
@@ -290,6 +326,42 @@ export default function TroubleshootChat({ machine, onBack, onClose }) {
       </div>
 
       {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
+
+      {manualsOpen && (
+        <div className="modal-overlay" onClick={() => setManualsOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Manuals — {machine.name}</span>
+              <button className="modal-close" onClick={() => setManualsOpen(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              {manualsLoading ? (
+                <div className="loading-state"><span className="spinner" /> Loading…</div>
+              ) : manualsList.length === 0 ? (
+                <div className="picker-empty">No manuals uploaded for this machine yet.</div>
+              ) : (
+                <div className="machine-edit-list">
+                  {manualsList.map((m) => (
+                    <div key={m.id} className="machine-edit-row">
+                      <div className="machine-edit-info">
+                        <div className="machine-edit-name">{m.title}</div>
+                        <div className="machine-edit-meta">{manualStatus(m)}</div>
+                      </div>
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => openManualPdf(m)}
+                        disabled={!m.storage_path || openingManual === m.id}
+                      >
+                        {openingManual === m.id ? <><span className="spinner" /> Opening…</> : 'View'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

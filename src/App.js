@@ -110,7 +110,7 @@ export default function App() {
             )}
 
             {view === 'chat' && machine && (
-              <TroubleshootChat machine={machine} onBack={backToPicker} onClose={goHome} />
+              <TroubleshootChat machine={machine} onClose={goHome} />
             )}
 
             {view === 'repair' && machine && (
