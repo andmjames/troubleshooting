@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { fetchPMTasks, addPMTask, updatePMTask, removePMTask } from '../lib/supabase';
-import { INTERVALS, intervalLabel, taskTitle, taskUrl } from '../lib/pm';
+import { UNITS, intervalToDays, daysToInterval, intervalLabel, taskTitle, taskUrl } from '../lib/pm';
 import { useToast } from './Toast';
 
-const BLANK = { name: '', bullets: '', interval_days: 90 };
+const BLANK = { name: '', bullets: '', count: 90, unit: 'days' };
 
 // Convert checklist array <-> textarea text (one bullet per line)
 const toText = (arr) => (Array.isArray(arr) ? arr.join('\n') : '');
@@ -33,7 +33,10 @@ export default function PMEditor({ machine, onBack }) {
 
   const startNew = () => { setForm(BLANK); setEditing('new'); };
   const startEdit = (t) => {
-    setForm({ name: t.name || '', bullets: toText(t.checklist), interval_days: t.interval_days });
+    const derived = (t.interval_count != null && t.interval_unit)
+      ? { count: t.interval_count, unit: t.interval_unit }
+      : daysToInterval(t.interval_days || 0);
+    setForm({ name: t.name || '', bullets: toText(t.checklist), count: derived.count, unit: derived.unit });
     setEditing(t.id);
   };
   const cancel = () => { setEditing(null); setForm(BLANK); };
@@ -44,13 +47,19 @@ export default function PMEditor({ machine, onBack }) {
       toast('Add at least one checklist item', 'error');
       return;
     }
+    const count = parseInt(form.count, 10);
+    if (!count || count < 1) {
+      toast('Enter how many ' + form.unit + ' between completions', 'error');
+      return;
+    }
+    const interval = { interval_days: intervalToDays(count, form.unit), interval_count: count, interval_unit: form.unit };
     setSaving(true);
     try {
       if (editing === 'new') {
-        await addPMTask({ machine_id: machine.id, name: form.name.trim(), checklist, interval_days: form.interval_days });
+        await addPMTask({ machine_id: machine.id, name: form.name.trim(), checklist, ...interval });
         toast('Task added', 'success');
       } else {
-        await updatePMTask(editing, { name: form.name.trim(), checklist, interval_days: form.interval_days });
+        await updatePMTask(editing, { name: form.name.trim(), checklist, ...interval });
         toast('Task updated', 'success');
       }
       cancel();
@@ -121,13 +130,23 @@ export default function PMEditor({ machine, onBack }) {
             </div>
             <div className="field-group" style={{ marginTop: 12 }}>
               <label className="field-label">Interval — how often this must be completed</label>
-              <select
-                className="field-input"
-                value={form.interval_days}
-                onChange={(e) => setForm((f) => ({ ...f, interval_days: parseInt(e.target.value, 10) }))}
-              >
-                {INTERVALS.map((i) => <option key={i.days} value={i.days}>{i.label}</option>)}
-              </select>
+              <div className="interval-row">
+                <span className="interval-word">Every</span>
+                <input
+                  className="field-input interval-count"
+                  type="number"
+                  min="1"
+                  value={form.count}
+                  onChange={(e) => setForm((f) => ({ ...f, count: e.target.value }))}
+                />
+                <select
+                  className="field-input interval-unit"
+                  value={form.unit}
+                  onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+                >
+                  {UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
+                </select>
+              </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
               <button className="btn btn-ghost" onClick={cancel} disabled={saving}>Cancel</button>
@@ -157,9 +176,9 @@ export default function PMEditor({ machine, onBack }) {
                     return (
                       <div key={t.id} className="machine-edit-row">
                         <div className="machine-edit-info">
-                          <div className="machine-edit-name">{t.name?.trim() || intervalLabel(t.interval_days)}</div>
+                          <div className="machine-edit-name">{t.name?.trim() || intervalLabel(t)}</div>
                           <div className="machine-edit-meta">
-                            {intervalLabel(t.interval_days)} · {items.length} item{items.length === 1 ? '' : 's'}
+                            {intervalLabel(t)} · {items.length} item{items.length === 1 ? '' : 's'}
                           </div>
                         </div>
                         <div className="machine-edit-actions">

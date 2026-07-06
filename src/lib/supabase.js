@@ -305,7 +305,7 @@ export async function removeMachine(machineId) {
 export async function fetchPMTasks(machineId) {
   const { data, error } = await supabase
     .from('et_pm_tasks')
-    .select('id, machine_id, name, checklist, interval_days, last_completed')
+    .select('id, machine_id, name, checklist, interval_days, interval_count, interval_unit, last_completed')
     .eq('machine_id', machineId)
     .order('created_at', { ascending: true });
   if (error) throw error;
@@ -315,12 +315,12 @@ export async function fetchPMTasks(machineId) {
 export async function fetchAllPMTasks() {
   const { data, error } = await supabase
     .from('et_pm_tasks')
-    .select('id, machine_id, name, checklist, interval_days, last_completed');
+    .select('id, machine_id, name, checklist, interval_days, interval_count, interval_unit, last_completed');
   if (error) throw error;
   return data || [];
 }
 
-export async function addPMTask({ machine_id, name, checklist, interval_days }) {
+export async function addPMTask({ machine_id, name, checklist, interval_days, interval_count, interval_unit }) {
   const { data, error } = await supabase
     .from('et_pm_tasks')
     .insert({
@@ -328,6 +328,8 @@ export async function addPMTask({ machine_id, name, checklist, interval_days }) 
       name: name || null,
       checklist: checklist || [],
       interval_days,
+      interval_count: interval_count ?? null,
+      interval_unit: interval_unit ?? null,
     })
     .select()
     .single();
@@ -340,6 +342,8 @@ export async function updatePMTask(id, fields) {
   if ('name' in fields) payload.name = fields.name || null;
   if ('checklist' in fields) payload.checklist = fields.checklist || [];
   if ('interval_days' in fields) payload.interval_days = fields.interval_days;
+  if ('interval_count' in fields) payload.interval_count = fields.interval_count ?? null;
+  if ('interval_unit' in fields) payload.interval_unit = fields.interval_unit ?? null;
   const { data, error } = await supabase
     .from('et_pm_tasks').update(payload).eq('id', id).select().single();
   if (error) throw error;

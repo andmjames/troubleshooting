@@ -1,21 +1,54 @@
 // Preventative-maintenance helpers shared by the PM screens.
 
-export const INTERVALS = [
-  { label: 'Every 90 Days', days: 90 },
-  { label: 'Every 6 Months', days: 182 },
-  { label: 'Every Year', days: 365 },
+// Interval units the user can choose, with their day-conversion.
+export const UNITS = [
+  { value: 'days', label: 'Days', days: 1 },
+  { value: 'weeks', label: 'Weeks', days: 7 },
+  { value: 'months', label: 'Months', days: 30 },
+  { value: 'years', label: 'Years', days: 365 },
 ];
 
-export function intervalLabel(days) {
-  const hit = INTERVALS.find((i) => i.days === days);
-  if (hit) return hit.label;
-  return `Every ${days} days`;
+// Convert a count + unit into a number of days (for scheduling math).
+export function intervalToDays(count, unit) {
+  const u = UNITS.find((x) => x.value === unit) || UNITS[0];
+  return Math.max(1, Math.round((Number(count) || 0) * u.days));
+}
+
+// Derive a { count, unit } from a raw day count (for legacy tasks with no unit stored).
+export function daysToInterval(days) {
+  if (days % 365 === 0) return { count: days / 365, unit: 'years' };
+  if (days % 30 === 0) return { count: days / 30, unit: 'months' };
+  if (days % 7 === 0) return { count: days / 7, unit: 'weeks' };
+  return { count: days, unit: 'days' };
+}
+
+// "Every 8 weeks", "Every 2 years", etc. Prefers the stored count/unit; falls back
+// to deriving from interval_days for older tasks.
+export function intervalLabel(task) {
+  // Allow passing either a task object or a raw day number (back-compat).
+  let count;
+  let unit;
+  if (task && typeof task === 'object') {
+    count = task.interval_count;
+    unit = task.interval_unit;
+    if (count == null || !unit) {
+      const derived = daysToInterval(task.interval_days || 0);
+      count = derived.count; unit = derived.unit;
+    }
+  } else {
+    const derived = daysToInterval(Number(task) || 0);
+    count = derived.count; unit = derived.unit;
+  }
+  const u = UNITS.find((x) => x.value === unit);
+  let word = u ? u.label.toLowerCase() : 'days';
+  if (Number(count) === 1) word = word.replace(/s$/, ''); // singular
+  return `Every ${count} ${word}`;
 }
 
 // Display title for a task: its name if set, otherwise the interval label.
 export function taskTitle(task) {
   const n = task?.name?.trim();
-  return n || intervalLabel(task?.interval_days);
+  return n || intervalLabel(task);
 }
 
 // Days from today until a task is next due. Negative = overdue.

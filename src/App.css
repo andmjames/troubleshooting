@@ -815,3 +815,9 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   display: inline-flex; align-items: center; gap: 5px; padding: 4px 0;
 }
 .back-link:hover { color: var(--text); }
+
+/* PM interval: "Every [ 2 ] [ Years ▾ ]" */
+.interval-row { display: flex; align-items: center; gap: 8px; }
+.interval-word { font-size: 14px; color: var(--text2); flex-shrink: 0; }
+.interval-count { width: 90px; flex-shrink: 0; }
+.interval-unit { flex: 1; min-width: 0; }
