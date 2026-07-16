@@ -4,6 +4,7 @@ import { signedUrl, createTroubleshootJob, pollTroubleshootJob, uploadTroublesho
 import { compressImage } from '../lib/image';
 import { renderPdfPage } from '../lib/pdfRender';
 import Lightbox from './Lightbox';
+import ManualViewer from './ManualViewer';
 import { useToast } from './Toast';
 
 // Render a tiny subset of markdown (bullets, **bold**, paragraphs) safely as React nodes.
@@ -36,7 +37,7 @@ function renderAnswer(text) {
   );
 }
 
-function Thumb({ img, onOpen }) {
+function Thumb({ img, onOpen, onOpenManual }) {
   const [src, setSrc] = useState(img.kind === 'manual-page' ? null : (img.url || null));
   const [failed, setFailed] = useState(false);
 
@@ -58,7 +59,11 @@ function Thumb({ img, onOpen }) {
     // loading placeholder while a manual page renders
     return <div className="msg-thumb msg-thumb-loading"><span className="spinner" /></div>;
   }
-  return <img className="msg-thumb" src={src} alt={img.label || ''} onClick={() => onOpen(src)} />;
+  const handleClick = () => {
+    if (img.kind === 'manual-page') onOpenManual(img);
+    else onOpen(src);
+  };
+  return <img className="msg-thumb" src={src} alt={img.label || ''} onClick={handleClick} />;
 }
 
 export default function TroubleshootChat({ machine, onClose }) {
@@ -71,6 +76,7 @@ export default function TroubleshootChat({ machine, onClose }) {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [lightbox, setLightbox] = useState(null);
+  const [manualView, setManualView] = useState(null); // { url, page, title }
   const [attachments, setAttachments] = useState([]); // { id, previewUrl, path, status }
   const [manualsOpen, setManualsOpen] = useState(false);
   const [manualsList, setManualsList] = useState([]);
@@ -247,7 +253,12 @@ export default function TroubleshootChat({ machine, onClose }) {
             {m.images && m.images.length > 0 && (
               <div className="msg-images">
                 {m.images.map((img, j) => (
-                  <Thumb key={j} img={img} onOpen={setLightbox} />
+                  <Thumb
+                    key={j}
+                    img={img}
+                    onOpen={setLightbox}
+                    onOpenManual={(mi) => setManualView({ url: mi.url, page: mi.page, title: mi.label })}
+                  />
                 ))}
               </div>
             )}
@@ -326,6 +337,15 @@ export default function TroubleshootChat({ machine, onClose }) {
       </div>
 
       {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
+
+      {manualView && (
+        <ManualViewer
+          url={manualView.url}
+          initialPage={manualView.page}
+          title={manualView.title}
+          onClose={() => setManualView(null)}
+        />
+      )}
 
       {manualsOpen && (
         <div className="modal-overlay" onClick={() => setManualsOpen(false)}>
