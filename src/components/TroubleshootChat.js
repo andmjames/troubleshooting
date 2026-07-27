@@ -4,7 +4,6 @@ import { signedUrl, createTroubleshootJob, pollTroubleshootJob, uploadTroublesho
 import { compressImage } from '../lib/image';
 import { renderPdfPage } from '../lib/pdfRender';
 import Lightbox from './Lightbox';
-import ManualViewer from './ManualViewer';
 import { useToast } from './Toast';
 
 // Render a tiny subset of markdown (bullets, **bold**, paragraphs) safely as React nodes.
@@ -76,7 +75,6 @@ export default function TroubleshootChat({ machine, onClose }) {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [lightbox, setLightbox] = useState(null);
-  const [manualView, setManualView] = useState(null); // { url, page, title }
   const [attachments, setAttachments] = useState([]); // { id, previewUrl, path, status }
   const [manualsOpen, setManualsOpen] = useState(false);
   const [manualsList, setManualsList] = useState([]);
@@ -257,7 +255,12 @@ export default function TroubleshootChat({ machine, onClose }) {
                     key={j}
                     img={img}
                     onOpen={setLightbox}
-                    onOpenManual={(mi) => setManualView({ url: mi.url, page: mi.page, title: mi.label })}
+                    onOpenManual={(mi) => {
+                      // Open the manual in the browser's native PDF viewer, jumped to the
+                      // cited page. The native viewer loads fast and pinch-zooms well.
+                      const u = mi.url + (mi.url.includes('#') ? '' : `#page=${mi.page}`);
+                      window.open(u, '_blank', 'noopener');
+                    }}
                   />
                 ))}
               </div>
@@ -337,15 +340,6 @@ export default function TroubleshootChat({ machine, onClose }) {
       </div>
 
       {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
-
-      {manualView && (
-        <ManualViewer
-          url={manualView.url}
-          initialPage={manualView.page}
-          title={manualView.title}
-          onClose={() => setManualView(null)}
-        />
-      )}
 
       {manualsOpen && (
         <div className="modal-overlay" onClick={() => setManualsOpen(false)}>
