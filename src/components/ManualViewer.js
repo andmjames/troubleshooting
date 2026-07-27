@@ -88,23 +88,51 @@ export default function ManualViewer({ url, initialPage = 1, title, onClose }) {
     if (el) { el.scrollIntoView({ block: 'start' }); didScroll.current = true; }
   }, [numPages, width, initialPage]);
 
-  // ── Pinch-to-zoom ──
-  // We zoom a content wrapper with CSS `zoom` (which reflows, so the scroll container
-  // gets proper 2-axis scrolling when zoomed) and keep the current level in a ref so
-  // it survives the lazy-render re-renders.
+  // ── Gestures ──
+  // The scroll area uses touch-action:none so the browser never steals the gesture.
+  // We drive it ourselves: one finger drags to scroll (with momentum), two fingers
+  // pinch to zoom. This is the only way to get reliable pinch-zoom inside a scroller
+  // on mobile (native two-finger pans would otherwise swallow the pinch).
   const zoomRef = useRef(1);
   const zoomWrapRef = useRef(null);
   const pointers = useRef(new Map());
-  const pinch = useRef(null);       // { dist }
+  const gesture = useRef('none');    // 'none' | 'pan' | 'pinch'
+  const panLast = useRef({ x: 0, y: 0, t: 0 });
+  const velocity = useRef({ x: 0, y: 0 });
+  const momentumRaf = useRef(null);
+  const pinchDist = useRef(0);
   const lastTap = useRef(0);
   const MINZ = 1;
-  const MAXZ = 4;
+  const MAXZ = 5;
   const clampZ = (z) => Math.max(MINZ, Math.min(MAXZ, z));
 
   // Re-apply the current zoom after every render (lazy page loads trigger renders).
   useEffect(() => {
     if (zoomWrapRef.current) zoomWrapRef.current.style.zoom = String(zoomRef.current);
   });
+
+  useEffect(() => () => { if (momentumRaf.current) cancelAnimationFrame(momentumRaf.current); }, []);
+
+  const stopMomentum = () => {
+    if (momentumRaf.current) { cancelAnimationFrame(momentumRaf.current); momentumRaf.current = null; }
+  };
+  const startMomentum = () => {
+    const v = { ...velocity.current };
+    if (Math.abs(v.x) < 0.03 && Math.abs(v.y) < 0.03) return;
+    const step = () => {
+      const el = scrollRef.current;
+      if (!el) return;
+      el.scrollTop += v.y * 16;
+      el.scrollLeft += v.x * 16;
+      v.x *= 0.93; v.y *= 0.93;
+      if (Math.abs(v.x) > 0.03 || Math.abs(v.y) > 0.03) {
+        momentumRaf.current = requestAnimationFrame(step);
+      } else {
+        momentumRaf.current = null;
+      }
+    };
+    momentumRaf.current = requestAnimationFrame(step);
+  };
 
   const applyZoom = (nextZoom, midX, midY) => {
     const el = scrollRef.current;
@@ -134,15 +162,19 @@ export default function ManualViewer({ url, initialPage = 1, title, onClose }) {
   };
 
   const onPointerDown = (e) => {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    stopMomentum();
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.current.size === 2) {
-      pinch.current = { dist: twoFingerDist() };
-      // stop native two-finger panning while we pinch
-      if (scrollRef.current) scrollRef.current.style.touchAction = 'none';
-    } else if (pointers.current.size === 1) {
+    if (pointers.current.size >= 2) {
+      gesture.current = 'pinch';
+      pinchDist.current = twoFingerDist();
+    } else {
+      gesture.current = 'pan';
+      panLast.current = { x: e.clientX, y: e.clientY, t: performance.now() };
+      velocity.current = { x: 0, y: 0 };
       const now = Date.now();
       if (now - lastTap.current < 300) {
-        applyZoom(zoomRef.current > 1.2 ? 1 : 2, e.clientX, e.clientY);
+        applyZoom(zoomRef.current > 1.2 ? 1 : 2.5, e.clientX, e.clientY);
         lastTap.current = 0;
       } else {
         lastTap.current = now;
@@ -153,20 +185,39 @@ export default function ManualViewer({ url, initialPage = 1, title, onClose }) {
   const onPointerMove = (e) => {
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.current.size === 2 && pinch.current) {
+    if (gesture.current === 'pinch' && pointers.current.size >= 2) {
       const d = twoFingerDist();
       const mid = twoFingerMid();
-      const ratio = d / (pinch.current.dist || d);
-      pinch.current.dist = d;
+      const ratio = d / (pinchDist.current || d);
+      pinchDist.current = d;
       applyZoom(zoomRef.current * ratio, mid.x, mid.y);
+    } else if (gesture.current === 'pan' && pointers.current.size === 1) {
+      const el = scrollRef.current;
+      if (!el) return;
+      const now = performance.now();
+      const dx = e.clientX - panLast.current.x;
+      const dy = e.clientY - panLast.current.y;
+      el.scrollLeft -= dx;
+      el.scrollTop -= dy;
+      const dt = Math.max(1, now - panLast.current.t);
+      velocity.current = { x: -dx / dt, y: -dy / dt };
+      panLast.current = { x: e.clientX, y: e.clientY, t: now };
     }
   };
 
   const endPointer = (e) => {
+    const wasPan = gesture.current === 'pan' && pointers.current.size === 1;
     pointers.current.delete(e.pointerId);
-    if (pointers.current.size < 2) {
-      pinch.current = null;
-      if (scrollRef.current) scrollRef.current.style.touchAction = 'pan-x pan-y';
+    if (pointers.current.size === 0) {
+      if (wasPan) startMomentum();
+      gesture.current = 'none';
+    } else if (pointers.current.size === 1) {
+      // dropped from a pinch to one finger — resume panning from the remaining finger
+      const [p] = [...pointers.current.values()];
+      panLast.current = { x: p.x, y: p.y, t: performance.now() };
+      velocity.current = { x: 0, y: 0 };
+      gesture.current = 'pan';
+      pinchDist.current = 0;
     }
   };
 

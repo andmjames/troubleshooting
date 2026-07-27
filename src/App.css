@@ -841,7 +841,8 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 }
 .pdfv-scroll {
   flex: 1; overflow: auto; -webkit-overflow-scrolling: touch;
-  padding: 12px; touch-action: pan-x pan-y;
+  padding: 12px; touch-action: none;
+  user-select: none; -webkit-user-select: none;
 }
 .pdfv-zoom { width: 100%; transform-origin: 0 0; }
 .pdfv-page {

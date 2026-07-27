@@ -178,16 +178,23 @@ async function runJob(sb, job) {
     }
   }
 
+  // List every cited manual page as a source chip, but only show ONE thumbnail — the
+  // most relevant page — to start with. Tapping it opens the full manual, where the
+  // tech can scroll to the nearby cited pages. (Multiple thumbnails felt overwhelming.)
   const citedManualPages = pages.filter((p) => citedPages.has(p.page_number));
   const pdfUrlCache = {};
+  let manualThumbAdded = false;
   for (const p of citedManualPages) {
     sources.push({ type: 'manual', label: `${p.manual_title} · p.${p.page_number}` });
-    if (p.storage_path) {
+    if (!manualThumbAdded && p.storage_path) {
       if (!(p.storage_path in pdfUrlCache)) {
         pdfUrlCache[p.storage_path] = await sign(sb, 'manuals', p.storage_path, 3600);
       }
       const url = pdfUrlCache[p.storage_path];
-      if (url) images.push({ kind: 'manual-page', url, page: p.page_number, label: `${p.manual_title} · p.${p.page_number}` });
+      if (url) {
+        images.push({ kind: 'manual-page', url, page: p.page_number, label: `${p.manual_title} · p.${p.page_number}` });
+        manualThumbAdded = true;
+      }
     }
   }
 
