@@ -840,16 +840,9 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .pdfv-scroll {
-  flex: 1; overflow: auto;
-  padding: 12px; touch-action: none;
-  user-select: none; -webkit-user-select: none;
+  flex: 1; overflow: auto; -webkit-overflow-scrolling: touch;
+  padding: 12px; display: flex; flex-direction: column; align-items: center;
 }
-/* The finger lands on the inner pages/images — they must also opt out of the
-   browser's native touch gestures, or iOS grabs the pinch before our JS sees it. */
-.pdfv-scroll, .pdfv-zoom, .pdfv-page, .pdfv-page img, .pdfv-page-loading {
-  touch-action: none; -webkit-touch-callout: none;
-}
-.pdfv-zoom { width: 100%; transform-origin: 0 0; }
 .pdfv-page {
   width: 100%; max-width: 900px; margin: 0 auto 12px; background: #fff;
   box-shadow: 0 1px 6px rgba(0,0,0,.18); display: flex; align-items: center; justify-content: center;
