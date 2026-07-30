@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { fetchRepairLogs, fetchAllRepairLogs, updateRepairLog, removeRepairLog, signedUrl, uploadRepairPhoto } from '../lib/supabase';
 import { IconPlus } from '../lib/icons';
 import Lightbox from './Lightbox';
@@ -14,6 +14,132 @@ function AsyncThumb({ path, onOpen }) {
   }, [path]);
   if (!url) return <div className="photo-tile" />;
   return <img className="msg-thumb" src={url} alt="" onClick={() => onOpen && onOpen(url)} />;
+}
+
+const PIE_COLORS = (i, n) => `hsl(${Math.round((i * 360) / Math.max(n, 1))}, 62%, 55%)`;
+
+// Simple SVG pie chart. slices: [{ name, count }]. Renders slices + a legend.
+function PieChart({ slices }) {
+  const total = slices.reduce((s, x) => s + x.count, 0);
+  if (!total) return <div className="picker-empty">No repairs to chart yet.</div>;
+  const r = 90; const cx = 100; const cy = 100;
+  let angle = -Math.PI / 2;
+  const paths = slices.map((s, i) => {
+    const frac = s.count / total;
+    const color = PIE_COLORS(i, slices.length);
+    if (frac >= 0.9999) {
+      // single machine = full circle
+      return <circle key={i} cx={cx} cy={cy} r={r} fill={color} />;
+    }
+    const a0 = angle; const a1 = angle + frac * 2 * Math.PI; angle = a1;
+    const x0 = cx + r * Math.cos(a0); const y0 = cy + r * Math.sin(a0);
+    const x1 = cx + r * Math.cos(a1); const y1 = cy + r * Math.sin(a1);
+    const large = frac > 0.5 ? 1 : 0;
+    const d = `M ${cx} ${cy} L ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
+    return <path key={i} d={d} fill={color} stroke="#fff" strokeWidth="1.5" />;
+  });
+  return (
+    <div className="pie-wrap">
+      <svg className="pie-svg" viewBox="0 0 200 200" role="img" aria-label="Repairs by machine">{paths}</svg>
+      <div className="pie-legend">
+        {slices.map((s, i) => (
+          <div key={i} className="pie-legend-row">
+            <span className="pie-swatch" style={{ background: PIE_COLORS(i, slices.length) }} />
+            <span className="pie-legend-name">{s.name}</span>
+            <span className="pie-legend-val">{s.count} ({Math.round((s.count / total) * 100)}%)</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Bar chart: % of repairs requiring Andrew's input, by month.
+function MonthlyAndrewChart({ months }) {
+  if (!months.some((m) => m.total > 0)) return <div className="picker-empty">No repairs in the last 6 months.</div>;
+  return (
+    <div className="mbar-chart">
+      {months.map((m, i) => (
+        <div key={i} className="mbar-col">
+          <div className="mbar-pct">{m.pct == null ? '—' : `${Math.round(m.pct)}%`}</div>
+          <div className="mbar-track"><div className="mbar-fill" style={{ height: `${m.pct == null ? 0 : m.pct}%` }} /></div>
+          <div className="mbar-label">{m.label}</div>
+          <div className="mbar-sub">{m.total ? `${m.required}/${m.total}` : '—'}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Ranked horizontal bars: repairs per machine over the last 90 days.
+function RankedMachines({ ranking }) {
+  if (!ranking.length) return <div className="picker-empty">No repairs in the last 90 days.</div>;
+  const max = ranking[0].count || 1;
+  return (
+    <div className="rank-list">
+      {ranking.map((r, i) => (
+        <div key={i} className="rank-row">
+          <span className="rank-name">{r.name}</span>
+          <span className="rank-bar-track"><span className="rank-bar-fill" style={{ width: `${(r.count / max) * 100}%` }} /></span>
+          <span className="rank-count">{r.count}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AnalyticsPanel({ analytics, onBack }) {
+  const pct = (v) => `${Math.round(v)}%`;
+  return (
+    <div className="repair-wrap">
+      <button className="back-link" onClick={onBack} style={{ marginBottom: 12 }}>← Back to entries</button>
+      <div className="repair-context-bar">Repair analytics <span className="repair-context-machine">(all machines)</span></div>
+
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="stat-value">{pct(analytics.pctAll)}</div>
+          <div className="stat-label">of all repairs required input from Andrew J</div>
+          <div className="stat-sub">{analytics.requiredAll} of {analytics.total} total</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{pct(analytics.pctRecent)}</div>
+          <div className="stat-label">of last-90-day repairs required input from Andrew J</div>
+          <div className="stat-sub">{analytics.recentRequired} of {analytics.recentTotal}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{analytics.recentTotal}</div>
+          <div className="stat-label">total repairs logged in the last 90 days</div>
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 16 }}>
+        <div className="section-header">
+          <span className="section-title"><span className="section-title-dot" /> % requiring Andrew J input — by month</span>
+        </div>
+        <div className="section-body">
+          <MonthlyAndrewChart months={analytics.months} />
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 16 }}>
+        <div className="section-header">
+          <span className="section-title"><span className="section-title-dot" /> Repairs by machine — last 90 days</span>
+        </div>
+        <div className="section-body">
+          <RankedMachines ranking={analytics.recentRanking} />
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 16 }}>
+        <div className="section-header">
+          <span className="section-title"><span className="section-title-dot" /> Repairs by machine — all time</span>
+        </div>
+        <div className="section-body">
+          <PieChart slices={analytics.machineSlices} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // Editable photo group: items are {kind:'existing', path} or {kind:'new', file, preview}.
@@ -78,6 +204,58 @@ export default function RepairLogManager({ machine, onBack, allMachines = false 
   const [solution, setSolution] = useState('');
   const [details, setDetails] = useState('');
   const [technician, setTechnician] = useState('');
+  const [andrewInput, setAndrewInput] = useState(null);   // 'yes' | 'no' | null
+  const [showAnalytics, setShowAnalytics] = useState(false);
+
+  const analytics = useMemo(() => {
+    const total = logs.length;
+    const requiredAll = logs.filter((l) => l.required_andrew_input === true).length;
+    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    const recent = logs.filter((l) => l.created_at && new Date(l.created_at).getTime() >= cutoff);
+    const recentTotal = recent.length;
+    const recentRequired = recent.filter((l) => l.required_andrew_input === true).length;
+    const byMachine = {};
+    logs.forEach((l) => { const n = l.machine_name || l.machine_id || 'Unknown'; byMachine[n] = (byMachine[n] || 0) + 1; });
+    const machineSlices = Object.entries(byMachine)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // % requiring Andrew's input by month — last 6 calendar months, continuous.
+    const now = new Date();
+    const months = [];
+    const monthIndex = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      monthIndex[key] = months.length;
+      months.push({ key, label: d.toLocaleString('en-US', { month: 'short' }), total: 0, required: 0, pct: null });
+    }
+    logs.forEach((l) => {
+      if (!l.created_at) return;
+      const d = new Date(l.created_at);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const idx = monthIndex[key];
+      if (idx != null) { months[idx].total += 1; if (l.required_andrew_input === true) months[idx].required += 1; }
+    });
+    months.forEach((m) => { m.pct = m.total ? (m.required / m.total) * 100 : null; });
+
+    // Repairs by machine — last 90 days, ranked.
+    const recentByMachine = {};
+    recent.forEach((l) => { const n = l.machine_name || l.machine_id || 'Unknown'; recentByMachine[n] = (recentByMachine[n] || 0) + 1; });
+    const recentRanking = Object.entries(recentByMachine)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      total, requiredAll,
+      pctAll: total ? (requiredAll / total) * 100 : 0,
+      recentTotal, recentRequired,
+      pctRecent: recentTotal ? (recentRequired / recentTotal) * 100 : 0,
+      machineSlices,
+      months,
+      recentRanking,
+    };
+  }, [logs]);
   const [probPhotos, setProbPhotos] = useState([]);
   const [solPhotos, setSolPhotos] = useState([]);
 
@@ -99,6 +277,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false 
     setSolution(log.solution || '');
     setDetails(log.details || '');
     setTechnician(log.technician || '');
+    setAndrewInput(log.required_andrew_input === true ? 'yes' : log.required_andrew_input === false ? 'no' : null);
     setProbPhotos((log.problem_photos || []).map((p) => ({ kind: 'existing', path: p.path })));
     setSolPhotos((log.solution_photos || []).map((p) => ({ kind: 'existing', path: p.path })));
     setEditing(log.id);
@@ -116,11 +295,13 @@ export default function RepairLogManager({ machine, onBack, allMachines = false 
 
   const saveEdit = async () => {
     if (!problem.trim()) { toast('Problem description is required', 'error'); return; }
+    if (!andrewInput) { toast('Select whether this required input from Andrew J', 'error'); return; }
     setSaving(true);
     try {
       const [pPhotos, sPhotos] = await Promise.all([uploadGroup(probPhotos), uploadGroup(solPhotos)]);
       await updateRepairLog(editing, {
         problem, solution, details, technician,
+        required_andrew_input: andrewInput === 'yes',
         problem_photos: pPhotos, solution_photos: sPhotos,
       });
       toast('Repair log updated', 'success');
@@ -181,10 +362,23 @@ export default function RepairLogManager({ machine, onBack, allMachines = false 
               <label className="field-label">Technician</label>
               <input className="field-input" value={technician} onChange={(e) => setTechnician(e.target.value)} />
             </div>
+            <div className="field-group" style={{ marginTop: 12 }}>
+              <label className="field-label">Did this repair require input from Andrew J? <span className="field-req">*</span></label>
+              <div className="radio-row">
+                <label className="radio-opt">
+                  <input type="radio" name="editAndrewInput" checked={andrewInput === 'yes'} onChange={() => setAndrewInput('yes')} />
+                  <span>Yes</span>
+                </label>
+                <label className="radio-opt">
+                  <input type="radio" name="editAndrewInput" checked={andrewInput === 'no'} onChange={() => setAndrewInput('no')} />
+                  <span>No</span>
+                </label>
+              </div>
+            </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
               <button className="btn btn-ghost" onClick={cancelEdit} disabled={saving}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveEdit} disabled={saving || !problem.trim()}>
+              <button className="btn btn-primary" onClick={saveEdit} disabled={saving || !problem.trim() || !andrewInput}>
                 {saving ? <><span className="spinner" /> Saving…</> : 'Save changes'}
               </button>
             </div>
@@ -197,6 +391,10 @@ export default function RepairLogManager({ machine, onBack, allMachines = false 
   }
 
   // ── List view ──
+  if (allMachines && showAnalytics) {
+    return <AnalyticsPanel analytics={analytics} onBack={() => setShowAnalytics(false)} />;
+  }
+
   return (
     <div className="repair-wrap">
       <button className="back-link" onClick={onBack} style={{ marginBottom: 12 }}>
@@ -204,9 +402,14 @@ export default function RepairLogManager({ machine, onBack, allMachines = false 
       </button>
 
       <div className="repair-context-bar">
-        {allMachines
-          ? <>All repair logs <span className="repair-context-machine">(every machine)</span></>
-          : <>Repair log for <span className="repair-context-machine">{machine.name}</span></>}
+        <span style={{ flex: 1 }}>
+          {allMachines
+            ? <>All repair logs <span className="repair-context-machine">(every machine)</span></>
+            : <>Repair log for <span className="repair-context-machine">{machine.name}</span></>}
+        </span>
+        {allMachines && (
+          <button className="btn btn-sm" onClick={() => setShowAnalytics(true)}>Analytics</button>
+        )}
       </div>
 
       <div className="section">
@@ -260,6 +463,13 @@ export default function RepairLogManager({ machine, onBack, allMachines = false 
                       <div className="log-field-label">Details</div>
                       <div className="log-field-text">{log.details}</div>
                     </>}
+
+                    <div className="log-field-label">Required input from Andrew J?</div>
+                    <div className="log-field-text">
+                      {log.required_andrew_input === true ? 'Yes'
+                        : log.required_andrew_input === false ? 'No'
+                        : <span className="log-notset">Not set — tap Edit to record it</span>}
+                    </div>
                   </div>
                 );
               })}

@@ -198,17 +198,15 @@ export default function RepairLog({ machine, onBack, onDone }) {
 
           <div className="field-group" style={{ marginTop: 14 }}>
             <label className="field-label">Did this repair require input from Andrew J? <span className="field-req">*</span></label>
-            <div className="choice-row">
-              <button
-                type="button"
-                className={`choice-btn ${andrewInput === 'yes' ? 'choice-btn-active' : ''}`}
-                onClick={() => setAndrewInput('yes')}
-              >Yes</button>
-              <button
-                type="button"
-                className={`choice-btn ${andrewInput === 'no' ? 'choice-btn-active' : ''}`}
-                onClick={() => setAndrewInput('no')}
-              >No</button>
+            <div className="radio-row">
+              <label className="radio-opt">
+                <input type="radio" name="andrewInput" checked={andrewInput === 'yes'} onChange={() => setAndrewInput('yes')} />
+                <span>Yes</span>
+              </label>
+              <label className="radio-opt">
+                <input type="radio" name="andrewInput" checked={andrewInput === 'no'} onChange={() => setAndrewInput('no')} />
+                <span>No</span>
+              </label>
             </div>
           </div>
         </div>

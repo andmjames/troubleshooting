@@ -854,16 +854,50 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 }
 .pdfv-msg { margin-top: 40px; }
 
-/* Required-field marker + Yes/No choice buttons (repair log) */
+/* Required-field marker + Yes/No radio selection (repair log) */
 .field-req { color: #c0392b; font-weight: 700; }
-.choice-row { display: flex; gap: 10px; }
-.choice-btn {
-  flex: 1; padding: 11px 14px; font-size: 14px; font-weight: 600;
-  color: var(--text); background: var(--bg); cursor: pointer;
-  border: 1.5px solid var(--border2); border-radius: var(--radius);
-  transition: border-color .15s, background .15s;
+.radio-row { display: flex; gap: 20px; align-items: center; margin-top: 2px; }
+.radio-opt {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 14px; color: var(--text); cursor: pointer;
 }
-.choice-btn:hover { border-color: var(--text3); }
-.choice-btn-active {
-  border-color: var(--text); background: var(--text); color: var(--bg);
+.radio-opt input { width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: var(--text); }
+.log-notset { color: var(--text3); font-style: italic; }
+
+/* Repair analytics: stat cards + pie chart */
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 640px) { .stat-grid { grid-template-columns: 1fr; } }
+.stat-card {
+  border: .5px solid var(--border); border-radius: var(--radius);
+  background: var(--bg); padding: 16px;
 }
+.stat-value { font-size: 30px; font-weight: 700; color: var(--text); line-height: 1.1; }
+.stat-label { font-size: 13px; color: var(--text2); margin-top: 6px; line-height: 1.4; }
+.stat-sub { font-size: 12px; color: var(--text3); margin-top: 6px; }
+.pie-wrap { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+.pie-svg { width: 200px; height: 200px; flex-shrink: 0; }
+.pie-legend { display: flex; flex-direction: column; gap: 6px; min-width: 200px; flex: 1; }
+.pie-legend-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.pie-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.pie-legend-name { color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pie-legend-val { color: var(--text3); flex-shrink: 0; }
+
+/* Analytics: monthly % bars */
+.mbar-chart { display: flex; gap: 8px; align-items: flex-end; }
+.mbar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
+.mbar-pct { font-size: 12px; font-weight: 700; color: var(--text2); }
+.mbar-track {
+  position: relative; width: 100%; max-width: 48px; height: 130px;
+  background: var(--bg2); border-radius: 6px; display: flex; align-items: flex-end;
+}
+.mbar-fill { width: 100%; background: var(--text); border-radius: 6px 6px 0 0; min-height: 2px; transition: height .3s ease; }
+.mbar-label { font-size: 12px; font-weight: 600; color: var(--text2); }
+.mbar-sub { font-size: 11px; color: var(--text3); }
+
+/* Analytics: ranked machine bars */
+.rank-list { display: flex; flex-direction: column; gap: 8px; }
+.rank-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.rank-name { width: 40%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.rank-bar-track { flex: 1; height: 14px; background: var(--bg2); border-radius: 7px; overflow: hidden; }
+.rank-bar-fill { display: block; height: 100%; background: var(--text); border-radius: 7px; min-width: 2px; }
+.rank-count { width: 26px; text-align: right; color: var(--text2); font-weight: 700; flex-shrink: 0; }

@@ -68,7 +68,7 @@ export async function saveRepairLog(row) {
 export async function fetchRepairLogs(machineId) {
   const { data, error } = await supabase
     .from('et_repair_logs')
-    .select('id, machine_id, problem, solution, details, technician, problem_photos, solution_photos, created_at')
+    .select('id, machine_id, problem, solution, details, technician, required_andrew_input, problem_photos, solution_photos, created_at')
     .eq('machine_id', machineId)
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -80,7 +80,7 @@ export async function fetchAllRepairLogs() {
   const [logsRes, machines] = await Promise.all([
     supabase
       .from('et_repair_logs')
-      .select('id, machine_id, problem, solution, details, technician, problem_photos, solution_photos, created_at')
+      .select('id, machine_id, problem, solution, details, technician, required_andrew_input, problem_photos, solution_photos, created_at')
       .order('created_at', { ascending: false }),
     fetchMachines(),
   ]);
@@ -101,6 +101,7 @@ export async function updateRepairLog(id, fields) {
   if ('solution' in fields) payload.solution = (fields.solution || '').trim() || null;
   if ('details' in fields) payload.details = (fields.details || '').trim() || null;
   if ('technician' in fields) payload.technician = (fields.technician || '').trim() || null;
+  if ('required_andrew_input' in fields) payload.required_andrew_input = fields.required_andrew_input;
   if ('problem_photos' in fields) payload.problem_photos = fields.problem_photos || [];
   if ('solution_photos' in fields) payload.solution_photos = fields.solution_photos || [];
   const { data, error } = await supabase
