@@ -853,3 +853,17 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   color: var(--text3); font-size: 13px; padding: 24px; width: 100%;
 }
 .pdfv-msg { margin-top: 40px; }
+
+/* Required-field marker + Yes/No choice buttons (repair log) */
+.field-req { color: #c0392b; font-weight: 700; }
+.choice-row { display: flex; gap: 10px; }
+.choice-btn {
+  flex: 1; padding: 11px 14px; font-size: 14px; font-weight: 600;
+  color: var(--text); background: var(--bg); cursor: pointer;
+  border: 1.5px solid var(--border2); border-radius: var(--radius);
+  transition: border-color .15s, background .15s;
+}
+.choice-btn:hover { border-color: var(--text3); }
+.choice-btn-active {
+  border-color: var(--text); background: var(--text); color: var(--bg);
+}
