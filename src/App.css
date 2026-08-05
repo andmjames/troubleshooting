@@ -904,3 +904,17 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .user-add-row { display: flex; gap: 10px; align-items: stretch; }
 .user-add-row .field-input { flex: 1; min-width: 0; }
 .user-add-row .btn { flex-shrink: 0; }
+
+/* User permissions (Settings) */
+.user-row { cursor: pointer; }
+.user-row:hover { border-color: var(--text3); }
+.user-row-chevron { color: var(--text3); font-size: 20px; flex-shrink: 0; }
+.perm-hint { font-size: 13px; color: var(--text2); margin: 0 0 4px; }
+.perm-list { display: flex; flex-direction: column; }
+.perm-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 0; border-bottom: .5px solid var(--border);
+  font-size: 14px; color: var(--text); cursor: pointer;
+}
+.perm-row:last-child { border-bottom: none; }
+.perm-row input { width: 18px; height: 18px; accent-color: var(--text); cursor: pointer; flex-shrink: 0; }

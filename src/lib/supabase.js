@@ -9,7 +9,7 @@ export const supabase = createClient(url, anonKey);
 export async function fetchUsers() {
   const { data, error } = await supabase
     .from('et_users')
-    .select('id, name, created_at')
+    .select('id, name, permissions, created_at')
     .order('name', { ascending: true });
   if (error) throw error;
   return data || [];
@@ -18,6 +18,16 @@ export async function addUser(name) {
   const { data, error } = await supabase
     .from('et_users')
     .insert({ name: (name || '').trim() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+export async function updateUserPermissions(id, permissions) {
+  const { data, error } = await supabase
+    .from('et_users')
+    .update({ permissions: permissions || {} })
+    .eq('id', id)
     .select()
     .single();
   if (error) throw error;

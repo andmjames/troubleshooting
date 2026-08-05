@@ -1,7 +1,20 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { fetchUsers, addUser, removeUser } from '../lib/supabase';
+import { fetchUsers, addUser, removeUser, updateUserPermissions } from '../lib/supabase';
 import { IconPlus } from '../lib/icons';
 import { useToast } from './Toast';
+
+// Areas a user can be granted access to.
+export const PERMISSIONS = [
+  { key: 'preventative_maintenance', label: 'Preventative maintenance' },
+  { key: 'settings', label: 'Settings' },
+  { key: 'edit_machines', label: 'Edit machines' },
+  { key: 'analytics', label: 'Analytics' },
+];
+
+function permSummary(u) {
+  const granted = PERMISSIONS.filter((p) => u.permissions && u.permissions[p.key]).map((p) => p.label);
+  return granted.length ? granted.join(', ') : 'No access granted';
+}
 
 export default function Settings({ onBack }) {
   const [users, setUsers] = useState([]);
@@ -10,6 +23,9 @@ export default function Settings({ onBack }) {
   const [adding, setAdding] = useState(false);
   const [confirmDel, setConfirmDel] = useState(null);
   const [removing, setRemoving] = useState(false);
+  const [permTarget, setPermTarget] = useState(null);   // user whose permissions are open
+  const [permDraft, setPermDraft] = useState({});
+  const [permSaving, setPermSaving] = useState(false);
   const toast = useToast();
 
   const load = useCallback(async () => {
@@ -51,6 +67,22 @@ export default function Settings({ onBack }) {
     }
   };
 
+  const openPerms = (u) => { setPermTarget(u); setPermDraft({ ...(u.permissions || {}) }); };
+  const togglePerm = (key) => setPermDraft((d) => ({ ...d, [key]: !d[key] }));
+  const savePerms = async () => {
+    setPermSaving(true);
+    try {
+      await updateUserPermissions(permTarget.id, permDraft);
+      setPermTarget(null);
+      await load();
+      toast('Permissions saved', 'success');
+    } catch (e) {
+      toast(e.message || 'Could not save permissions', 'error');
+    } finally {
+      setPermSaving(false);
+    }
+  };
+
   return (
     <div className="repair-wrap">
       <button className="back-link" onClick={onBack} style={{ marginBottom: 12 }}>← Home</button>
@@ -84,11 +116,16 @@ export default function Settings({ onBack }) {
             ) : (
               <div className="machine-edit-list">
                 {users.map((u) => (
-                  <div key={u.id} className="machine-edit-row">
+                  <div key={u.id} className="machine-edit-row user-row" onClick={() => openPerms(u)}>
                     <div className="machine-edit-info">
                       <div className="machine-edit-name">{u.name}</div>
+                      <div className="machine-edit-meta">{permSummary(u)}</div>
                     </div>
-                    <button className="btn btn-sm btn-danger" onClick={() => setConfirmDel(u)}>Remove</button>
+                    <span className="user-row-chevron" aria-hidden="true">›</span>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={(e) => { e.stopPropagation(); setConfirmDel(u); }}
+                    >Remove</button>
                   </div>
                 ))}
               </div>
@@ -96,6 +133,34 @@ export default function Settings({ onBack }) {
           </div>
         </div>
       </div>
+
+      {permTarget && (
+        <div className="modal-overlay" onClick={() => !permSaving && setPermTarget(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Permissions — {permTarget.name}</span>
+              <button className="modal-close" onClick={() => !permSaving && setPermTarget(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="perm-hint">Choose which areas this user can access.</p>
+              <div className="perm-list">
+                {PERMISSIONS.map((p) => (
+                  <label key={p.key} className="perm-row">
+                    <span>{p.label}</span>
+                    <input type="checkbox" checked={!!permDraft[p.key]} onChange={() => togglePerm(p.key)} />
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setPermTarget(null)} disabled={permSaving}>Cancel</button>
+              <button className="btn btn-primary" onClick={savePerms} disabled={permSaving}>
+                {permSaving ? <><span className="spinner" /> Saving…</> : 'Save permissions'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmDel && (
         <div className="modal-overlay" onClick={() => !removing && setConfirmDel(null)}>
