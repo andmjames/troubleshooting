@@ -4,7 +4,7 @@
   "private": true,
   "description": "Netlify Functions dependencies (kept separate from the React app build).",
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/supabase-js": "2.50.5",
     "pdf-lib": "^1.17.1"
   }
 }
