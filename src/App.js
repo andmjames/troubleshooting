@@ -6,7 +6,6 @@ import RepairLog from './components/RepairLog';
 import UploadManual from './components/UploadManual';
 import EditMachines from './components/EditMachines';
 import Settings from './components/Settings';
-import UserPicker from './components/UserPicker';
 import PreventativeMaintenance from './components/PreventativeMaintenance';
 import PMEditor from './components/PMEditor';
 import RepairLogManager from './components/RepairLogManager';
@@ -63,12 +62,6 @@ export default function App() {
     }
     pmHandled.current = true;
   }, [currentUser]);
-
-  const pickUser = (u) => {
-    window.history.pushState({}, '', '/' + slugify(u.name));
-    setCurrentUser(u);
-    setUserNotFound(false);
-  };
 
   const can = (key) => hasPermission(currentUser, key);
 
@@ -143,7 +136,18 @@ export default function App() {
             {!usersLoaded ? (
               <div className="loading-state" style={{ marginTop: 40 }}><span className="spinner" /> Loading…</div>
             ) : !currentUser ? (
-              <UserPicker onPick={pickUser} notFound={userNotFound} />
+              <div className="picker-wrap">
+                <div className="picker-eyebrow">PMI Tape · Troubleshooting</div>
+                <h1 className="picker-title">Access by personal link</h1>
+                <p className="picker-sub">
+                  {userNotFound
+                    ? "That link isn't recognized. Please open the app using your personal link."
+                    : 'This app is opened through your personal link. Please use the URL assigned to you.'}
+                </p>
+                <p className="picker-sub" style={{ marginTop: 4 }}>
+                  Don't have your link? Ask an admin — each user's link is in Settings.
+                </p>
+              </div>
             ) : (
             <>
             {view === 'home' && <Home onChoose={choose} can={can} userName={currentUser.name} />}
