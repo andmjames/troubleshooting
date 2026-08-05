@@ -26,3 +26,10 @@ export function slugify(name) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
+
+// The slug a user's interface actually lives at: a custom slug if set, else the
+// slug derived from their name.
+export function userSlug(user) {
+  const custom = user && user.slug ? String(user.slug).trim() : '';
+  return custom || slugify(user ? user.name : '');
+}

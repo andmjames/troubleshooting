@@ -13,7 +13,7 @@ import ManualManager from './components/ManualManager';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import { fetchUsers, fetchMachines } from './lib/supabase';
-import { hasPermission, slugify } from './lib/permissions';
+import { hasPermission, userSlug } from './lib/permissions';
 import { LOGO_SRC } from './logo';
 import './App.css';
 
@@ -41,7 +41,7 @@ export default function App() {
       if (!alive) return;
       const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
       if (path) {
-        const u = us.find((x) => slugify(x.name) === path || String(x.id) === path) || null;
+        const u = us.find((x) => userSlug(x) === path || String(x.id) === path) || null;
         if (u) setCurrentUser(u); else setUserNotFound(true);
       }
       setUsersLoaded(true);

@@ -9,7 +9,7 @@ export const supabase = createClient(url, anonKey);
 export async function fetchUsers() {
   const { data, error } = await supabase
     .from('et_users')
-    .select('id, name, role, permissions, machine_ids, maintenance, created_at')
+    .select('id, name, slug, role, permissions, machine_ids, maintenance, created_at')
     .order('name', { ascending: true });
   if (error) throw error;
   return data || [];

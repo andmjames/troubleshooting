@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { fetchUsers, addUser, removeUser, updateUser, fetchMachines } from '../lib/supabase';
-import { PERMISSIONS, slugify } from '../lib/permissions';
+import { PERMISSIONS, userSlug } from '../lib/permissions';
 import { IconPlus } from '../lib/icons';
 import { useToast } from './Toast';
 
@@ -166,11 +166,11 @@ export default function Settings({ onBack }) {
               <div className="field-group">
                 <label className="field-label">Interface URL</label>
                 <div className="user-url-row">
-                  <code className="user-url">{`${window.location.origin}/${slugify(permTarget.name)}`}</code>
+                  <code className="user-url">{`${window.location.origin}/${userSlug(permTarget)}`}</code>
                   <button
                     className="btn btn-sm"
                     onClick={() => {
-                      const url = `${window.location.origin}/${slugify(permTarget.name)}`;
+                      const url = `${window.location.origin}/${userSlug(permTarget)}`;
                       if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast('Link copied', 'success'), () => toast('Copy failed', 'error'));
                       else toast('Copy not supported', 'error');
                     }}
