@@ -72,8 +72,8 @@ function MonthlyAndrewChart({ months }) {
 }
 
 // Ranked horizontal bars: repairs per machine over the last 90 days.
-function RankedMachines({ ranking }) {
-  if (!ranking.length) return <div className="picker-empty">No repairs in the last 90 days.</div>;
+function RankedMachines({ ranking, emptyText = 'No repairs in the last 90 days.' }) {
+  if (!ranking.length) return <div className="picker-empty">{emptyText}</div>;
   const max = ranking[0].count || 1;
   return (
     <div className="rank-list">
@@ -118,6 +118,15 @@ function AnalyticsPanel({ analytics, onBack }) {
         </div>
         <div className="section-body">
           <MonthlyAndrewChart months={analytics.months} />
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 16 }}>
+        <div className="section-header">
+          <span className="section-title"><span className="section-title-dot" /> Repairs by user — all time</span>
+        </div>
+        <div className="section-body">
+          <RankedMachines ranking={analytics.userRanking} emptyText="No repairs recorded yet." />
         </div>
       </div>
 
@@ -241,6 +250,13 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
 
+    // Repairs grouped by user (technician), all-time.
+    const byUser = {};
+    logs.forEach((l) => { const n = (l.technician || '').trim() || 'Unknown'; byUser[n] = (byUser[n] || 0) + 1; });
+    const userRanking = Object.entries(byUser)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
     // % requiring Andrew's input by month (maintenance repairs only) — last 6 months.
     const now = new Date();
     const months = [];
@@ -274,6 +290,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
       pctRecent: recentMaintTotal ? (recentRequired / recentMaintTotal) * 100 : 0,
       recentTotal,
       machineSlices,
+      userRanking,
       months,
       recentRanking,
     };
