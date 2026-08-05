@@ -358,9 +358,10 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
-.home-cards-3 { grid-template-columns: repeat(3, 1fr); }
+.home-cards-3 { display: flex; flex-wrap: wrap; justify-content: center; }
+.home-cards-3 .home-card { flex: 0 1 240px; }
 @media (max-width: 860px) {
-  .home-cards-3 { grid-template-columns: 1fr; }
+  .home-cards-3 .home-card { flex-basis: 100%; }
 }
 
 /* Secondary action below the main cards */
