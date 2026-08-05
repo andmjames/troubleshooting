@@ -189,7 +189,7 @@ const fmtDate = (iso) => {
   try { return new Date(iso).toLocaleDateString(); } catch { return ''; }
 };
 
-export default function RepairLogManager({ machine, onBack, allMachines = false, analyticsOnly = false, machineFilter }) {
+export default function RepairLogManager({ machine, onBack, allMachines = false, analyticsOnly = false, machineFilter, isMaintenance = false }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);     // log id being edited, or null
@@ -323,15 +323,17 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
 
   const saveEdit = async () => {
     if (!problem.trim()) { toast('Problem description is required', 'error'); return; }
-    if (!andrewInput) { toast('Select whether this required input from Andrew J', 'error'); return; }
+    if (isMaintenance && !andrewInput) { toast('Select whether this required input from Andrew J', 'error'); return; }
     setSaving(true);
     try {
       const [pPhotos, sPhotos] = await Promise.all([uploadGroup(probPhotos), uploadGroup(solPhotos)]);
-      await updateRepairLog(editing, {
+      const payload = {
         problem, solution, details, technician,
-        required_andrew_input: andrewInput === 'yes',
         problem_photos: pPhotos, solution_photos: sPhotos,
-      });
+      };
+      // Only maintenance users can view/change this; otherwise leave it untouched.
+      if (isMaintenance) payload.required_andrew_input = andrewInput === 'yes';
+      await updateRepairLog(editing, payload);
       toast('Repair log updated', 'success');
       setEditing(null);
       await load();
@@ -390,23 +392,25 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
               <label className="field-label">Technician</label>
               <input className="field-input" value={technician} onChange={(e) => setTechnician(e.target.value)} />
             </div>
-            <div className="field-group" style={{ marginTop: 12 }}>
-              <label className="field-label">Did this repair require input from Andrew J? <span className="field-req">*</span></label>
-              <div className="radio-row">
-                <label className="radio-opt">
-                  <input type="radio" name="editAndrewInput" checked={andrewInput === 'yes'} onChange={() => setAndrewInput('yes')} />
-                  <span>Yes</span>
-                </label>
-                <label className="radio-opt">
-                  <input type="radio" name="editAndrewInput" checked={andrewInput === 'no'} onChange={() => setAndrewInput('no')} />
-                  <span>No</span>
-                </label>
+            {isMaintenance && (
+              <div className="field-group" style={{ marginTop: 12 }}>
+                <label className="field-label">Did this repair require input from Andrew J? <span className="field-req">*</span></label>
+                <div className="radio-row">
+                  <label className="radio-opt">
+                    <input type="radio" name="editAndrewInput" checked={andrewInput === 'yes'} onChange={() => setAndrewInput('yes')} />
+                    <span>Yes</span>
+                  </label>
+                  <label className="radio-opt">
+                    <input type="radio" name="editAndrewInput" checked={andrewInput === 'no'} onChange={() => setAndrewInput('no')} />
+                    <span>No</span>
+                  </label>
+                </div>
               </div>
-            </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
               <button className="btn btn-ghost" onClick={cancelEdit} disabled={saving}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveEdit} disabled={saving || !problem.trim() || !andrewInput}>
+              <button className="btn btn-primary" onClick={saveEdit} disabled={saving || !problem.trim() || (isMaintenance && !andrewInput)}>
                 {saving ? <><span className="spinner" /> Saving…</> : 'Save changes'}
               </button>
             </div>
@@ -497,12 +501,14 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
                       <div className="log-field-text">{log.details}</div>
                     </>}
 
-                    <div className="log-field-label">Required input from Andrew J?</div>
-                    <div className="log-field-text">
-                      {log.required_andrew_input === true ? 'Yes'
-                        : log.required_andrew_input === false ? 'No'
-                        : <span className="log-notset">Not set — tap Edit to record it</span>}
-                    </div>
+                    {isMaintenance && <>
+                      <div className="log-field-label">Required input from Andrew J?</div>
+                      <div className="log-field-text">
+                        {log.required_andrew_input === true ? 'Yes'
+                          : log.required_andrew_input === false ? 'No'
+                          : <span className="log-notset">Not set — tap Edit to record it</span>}
+                      </div>
+                    </>}
                   </div>
                 );
               })}
