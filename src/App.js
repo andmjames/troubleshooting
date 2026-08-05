@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Home from './components/Home';
 import MachinePicker from './components/MachinePicker';
 import TroubleshootChat from './components/TroubleshootChat';
@@ -49,19 +49,9 @@ export default function App() {
     return () => { alive = false; };
   }, []);
 
-  // Honor a shared deep link like ?pmtask=123 once we know who the user is — but
-  // only if they can access Preventative maintenance. Works whether the user was
-  // identified from the URL or picked from the profile screen.
-  const pmHandled = useRef(false);
-  useEffect(() => {
-    if (pmHandled.current || !currentUser) return;
-    const pmId = new URLSearchParams(window.location.search).get('pmtask');
-    if (pmId && hasPermission(currentUser, 'preventative_maintenance')) {
-      setInitialPmTask(pmId);
-      setView('pm');
-    }
-    pmHandled.current = true;
-  }, [currentUser]);
+  // A shared ?pmtask=123 link is universal: anyone can open it, no profile or
+  // permission required, and it shows ONLY that task (locked, no navigation).
+  const [lockedPmTaskId] = useState(() => new URLSearchParams(window.location.search).get('pmtask'));
 
   const can = (key) => hasPermission(currentUser, key);
 
@@ -137,7 +127,8 @@ export default function App() {
   const viewLogsFor = (mc) => { setLogsMachine(mc); setView('repairLogs'); };
 
   const pageTitle =
-    view === 'home' ? 'Troubleshooting'
+    lockedPmTaskId ? 'Preventative Maintenance'
+    : view === 'home' ? 'Troubleshooting'
     : view === 'edit' ? 'Edit Machines'
     : view === 'settings' ? 'Settings'
     : view === 'pm' ? 'Preventative Maintenance'
@@ -162,7 +153,9 @@ export default function App() {
           </header>
 
           <main className="app-main">
-            {!usersLoaded ? (
+            {lockedPmTaskId ? (
+              <PreventativeMaintenance initialTaskId={lockedPmTaskId} locked />
+            ) : !usersLoaded ? (
               <div className="loading-state" style={{ marginTop: 40 }}><span className="spinner" /> Loading…</div>
             ) : !currentUser ? (
               <div className="picker-wrap">

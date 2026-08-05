@@ -13,7 +13,7 @@ function Counts({ counts, size }) {
   );
 }
 
-export default function PreventativeMaintenance({ onBack, initialTaskId }) {
+export default function PreventativeMaintenance({ onBack, initialTaskId, locked = false }) {
   const [machines, setMachines] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +24,8 @@ export default function PreventativeMaintenance({ onBack, initialTaskId }) {
   const [doneBy, setDoneBy] = useState('');
   const [doneOn, setDoneOn] = useState(todayISO());
   const [saving, setSaving] = useState(false);
+  const [lockedDone, setLockedDone] = useState(false);   // locked view: task completed
+  const [lockNotFound, setLockNotFound] = useState(false); // locked view: task id invalid
   const appliedDeepLink = useRef(false);
   const toast = useToast();
 
@@ -64,8 +66,10 @@ export default function PreventativeMaintenance({ onBack, initialTaskId }) {
       setDoneOn(todayISO());
       setCompleting(false);
       try { window.history.replaceState(null, '', `?pmtask=${t.id}`); } catch { /* ignore */ }
+    } else if (locked) {
+      setLockNotFound(true);
     }
-  }, [initialTaskId, loading, tasks, machines]);
+  }, [initialTaskId, loading, tasks, machines, locked]);
 
   const tasksFor = (machineId) => tasks.filter((t) => t.machine_id === machineId);
 
@@ -101,9 +105,13 @@ export default function PreventativeMaintenance({ onBack, initialTaskId }) {
         performed_on: doneOn,
       });
       toast('Maintenance logged', 'success');
-      await load();
-      setSelTask(null);
-      setUrlForTask(null);
+      if (locked) {
+        setLockedDone(true);
+      } else {
+        await load();
+        setSelTask(null);
+        setUrlForTask(null);
+      }
       setCompleting(false);
     } catch (e) {
       toast(e.message || 'Could not log completion', 'error');
@@ -115,10 +123,46 @@ export default function PreventativeMaintenance({ onBack, initialTaskId }) {
   if (loading) {
     return (
       <div className="repair-wrap">
-        <button className="back-link" onClick={onBack} style={{ marginBottom: 12 }}>← Home</button>
+        {!locked && <button className="back-link" onClick={onBack} style={{ marginBottom: 12 }}>← Home</button>}
         <div className="loading-state"><span className="spinner" /> Loading maintenance…</div>
       </div>
     );
+  }
+
+  // ── Locked single-task view (opened from a shared ?pmtask= link) ──
+  // Anyone can open it; they can only see and complete this one task — no
+  // navigation to the machine or its other tasks.
+  if (locked) {
+    if (lockNotFound) {
+      return (
+        <div className="repair-wrap">
+          <div className="section"><div className="section-body">
+            <div className="picker-empty">This maintenance task could not be found. It may have been removed.</div>
+          </div></div>
+        </div>
+      );
+    }
+    if (lockedDone) {
+      return (
+        <div className="repair-wrap">
+          <div className="section"><div className="section-body">
+            <div className="pm-done">
+              <div className="pm-done-check">✓</div>
+              <div className="pm-done-title">Maintenance logged</div>
+              <div className="pm-done-sub">Thanks — this task has been marked complete. You can close this page.</div>
+            </div>
+          </div></div>
+        </div>
+      );
+    }
+    if (!selTask) {
+      return (
+        <div className="repair-wrap">
+          <div className="loading-state"><span className="spinner" /> Loading task…</div>
+        </div>
+      );
+    }
+    // otherwise fall through to the task checklist view below (rendered locked)
   }
 
   // ── Task checklist view ──
@@ -127,14 +171,16 @@ export default function PreventativeMaintenance({ onBack, initialTaskId }) {
     const doneCount = Object.values(checked).filter(Boolean).length;
     return (
       <div className="repair-wrap">
-        <button className="back-link" onClick={closeTask} style={{ marginBottom: 12 }}>
-          ← {selMachine?.name || 'Tasks'}
-        </button>
+        {!locked && (
+          <button className="back-link" onClick={closeTask} style={{ marginBottom: 12 }}>
+            ← {selMachine?.name || 'Tasks'}
+          </button>
+        )}
 
         <div className="section">
           <div className="section-header">
             <span className="section-title"><span className="section-title-dot" /> {taskTitle(selTask)} checklist</span>
-            <button className="btn btn-ghost btn-sm" onClick={copyLink}>Copy link</button>
+            {!locked && <button className="btn btn-ghost btn-sm" onClick={copyLink}>Copy link</button>}
           </div>
           <div className="section-body">
             <div className="pm-task-sub">

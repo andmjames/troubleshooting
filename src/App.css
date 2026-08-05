@@ -930,3 +930,13 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   background: #e8f0fe; border-radius: 999px; padding: 2px 8px;
 }
 .perm-subhint { font-size: 12px; color: var(--text3); margin: 8px 0 0; }
+
+/* Locked PM task completion screen */
+.pm-done { text-align: center; padding: 24px 8px; }
+.pm-done-check {
+  width: 56px; height: 56px; margin: 0 auto 14px; border-radius: 50%;
+  background: #e7f6ec; color: #1e7a3d; font-size: 30px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.pm-done-title { font-size: 18px; font-weight: 700; color: var(--text); }
+.pm-done-sub { font-size: 14px; color: var(--text2); margin-top: 6px; }
