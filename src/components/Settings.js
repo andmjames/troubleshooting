@@ -5,9 +5,10 @@ import { IconPlus } from '../lib/icons';
 import { useToast } from './Toast';
 
 function permSummary(u) {
-  if (u.role === 'admin') return 'Admin · full access';
+  const maint = u.maintenance ? ' · Maintenance' : '';
+  if (u.role === 'admin') return `Admin · full access${maint}`;
   const granted = PERMISSIONS.filter((p) => u.permissions && u.permissions[p.key]).map((p) => p.label);
-  return granted.length ? granted.join(', ') : 'No access granted';
+  return (granted.length ? granted.join(', ') : 'No access granted') + maint;
 }
 
 export default function Settings({ onBack }) {
@@ -21,6 +22,7 @@ export default function Settings({ onBack }) {
   const [permRole, setPermRole] = useState('user');
   const [permDraft, setPermDraft] = useState({});
   const [permMachines, setPermMachines] = useState([]);   // machine ids assigned to the open user
+  const [permMaintenance, setPermMaintenance] = useState(false);
   const [permSaving, setPermSaving] = useState(false);
   const [machines, setMachines] = useState([]);
   const toast = useToast();
@@ -70,13 +72,14 @@ export default function Settings({ onBack }) {
     setPermRole(u.role || 'user');
     setPermDraft({ ...(u.permissions || {}) });
     setPermMachines(Array.isArray(u.machine_ids) ? u.machine_ids.map(Number) : []);
+    setPermMaintenance(!!u.maintenance);
   };
   const togglePerm = (key) => setPermDraft((d) => ({ ...d, [key]: !d[key] }));
   const toggleMachine = (id) => setPermMachines((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   const savePerms = async () => {
     setPermSaving(true);
     try {
-      await updateUser(permTarget.id, { role: permRole, permissions: permDraft, machine_ids: permMachines });
+      await updateUser(permTarget.id, { role: permRole, permissions: permDraft, machine_ids: permMachines, maintenance: permMaintenance });
       setPermTarget(null);
       await load();
       toast('Permissions saved', 'success');
@@ -173,6 +176,13 @@ export default function Settings({ onBack }) {
                     <span>Standard</span>
                   </label>
                 </div>
+              </div>
+
+              <div className="field-group" style={{ marginTop: 14 }}>
+                <label className="perm-row" style={{ borderBottom: 'none', padding: 0 }}>
+                  <span>Maintenance role <span className="perm-inline-hint">(counts toward the Andrew J analytics)</span></span>
+                  <input type="checkbox" checked={permMaintenance} onChange={() => setPermMaintenance((v) => !v)} />
+                </label>
               </div>
 
               {permRole === 'admin' ? (

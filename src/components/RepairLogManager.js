@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { fetchRepairLogs, fetchAllRepairLogs, updateRepairLog, removeRepairLog, signedUrl, uploadRepairPhoto } from '../lib/supabase';
+import { fetchRepairLogs, fetchAllRepairLogs, updateRepairLog, removeRepairLog, signedUrl, uploadRepairPhoto, fetchUsers } from '../lib/supabase';
 import { IconPlus } from '../lib/icons';
 import Lightbox from './Lightbox';
 import { useToast } from './Toast';
@@ -56,7 +56,7 @@ function PieChart({ slices }) {
 
 // Bar chart: % of repairs requiring Andrew's input, by month.
 function MonthlyAndrewChart({ months }) {
-  if (!months.some((m) => m.total > 0)) return <div className="picker-empty">No repairs in the last 6 months.</div>;
+  if (!months.some((m) => m.total > 0)) return <div className="picker-empty">No maintenance repairs in the last 6 months.</div>;
   return (
     <div className="mbar-chart">
       {months.map((m, i) => (
@@ -98,13 +98,13 @@ function AnalyticsPanel({ analytics, onBack }) {
       <div className="stat-grid">
         <div className="stat-card">
           <div className="stat-value">{pct(analytics.pctAll)}</div>
-          <div className="stat-label">of all repairs required input from Andrew J</div>
-          <div className="stat-sub">{analytics.requiredAll} of {analytics.total} total</div>
+          <div className="stat-label">of maintenance repairs required input from Andrew J</div>
+          <div className="stat-sub">{analytics.requiredAll} of {analytics.maintTotal} maintenance repairs</div>
         </div>
         <div className="stat-card">
           <div className="stat-value">{pct(analytics.pctRecent)}</div>
-          <div className="stat-label">of last-90-day repairs required input from Andrew J</div>
-          <div className="stat-sub">{analytics.recentRequired} of {analytics.recentTotal}</div>
+          <div className="stat-label">of last-90-day maintenance repairs required input from Andrew J</div>
+          <div className="stat-sub">{analytics.recentRequired} of {analytics.recentMaintTotal}</div>
         </div>
         <div className="stat-card">
           <div className="stat-value">{analytics.recentTotal}</div>
@@ -114,7 +114,7 @@ function AnalyticsPanel({ analytics, onBack }) {
 
       <div className="section" style={{ marginTop: 16 }}>
         <div className="section-header">
-          <span className="section-title"><span className="section-title-dot" /> % requiring Andrew J input — by month</span>
+          <span className="section-title"><span className="section-title-dot" /> % of maintenance repairs requiring Andrew J input — by month</span>
         </div>
         <div className="section-body">
           <MonthlyAndrewChart months={analytics.months} />
@@ -206,21 +206,42 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
   const [technician, setTechnician] = useState('');
   const [andrewInput, setAndrewInput] = useState(null);   // 'yes' | 'no' | null
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [maintenanceNames, setMaintenanceNames] = useState(() => new Set());
+
+  // Which technicians count toward the Andrew-J analytics (users flagged Maintenance).
+  useEffect(() => {
+    if (!allMachines) return;
+    let alive = true;
+    fetchUsers()
+      .then((us) => {
+        if (!alive) return;
+        setMaintenanceNames(new Set(us.filter((u) => u.maintenance).map((u) => (u.name || '').trim())));
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [allMachines]);
 
   const analytics = useMemo(() => {
-    const total = logs.length;
-    const requiredAll = logs.filter((l) => l.required_andrew_input === true).length;
     const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
-    const recent = logs.filter((l) => l.created_at && new Date(l.created_at).getTime() >= cutoff);
-    const recentTotal = recent.length;
-    const recentRequired = recent.filter((l) => l.required_andrew_input === true).length;
+    const isRecent = (l) => l.created_at && new Date(l.created_at).getTime() >= cutoff;
+
+    // Andrew-J metrics count ONLY repairs made by users flagged Maintenance.
+    const maintLogs = logs.filter((l) => l.technician && maintenanceNames.has(l.technician.trim()));
+    const maintTotal = maintLogs.length;
+    const requiredAll = maintLogs.filter((l) => l.required_andrew_input === true).length;
+    const recentMaint = maintLogs.filter(isRecent);
+    const recentMaintTotal = recentMaint.length;
+    const recentRequired = recentMaint.filter((l) => l.required_andrew_input === true).length;
+
+    // Volume metrics (totals, pie, rankings) count ALL repairs.
+    const recentTotal = logs.filter(isRecent).length;
     const byMachine = {};
     logs.forEach((l) => { const n = l.machine_name || l.machine_id || 'Unknown'; byMachine[n] = (byMachine[n] || 0) + 1; });
     const machineSlices = Object.entries(byMachine)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
 
-    // % requiring Andrew's input by month — last 6 calendar months, continuous.
+    // % requiring Andrew's input by month (maintenance repairs only) — last 6 months.
     const now = new Date();
     const months = [];
     const monthIndex = {};
@@ -230,7 +251,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
       monthIndex[key] = months.length;
       months.push({ key, label: d.toLocaleString('en-US', { month: 'short' }), total: 0, required: 0, pct: null });
     }
-    logs.forEach((l) => {
+    maintLogs.forEach((l) => {
       if (!l.created_at) return;
       const d = new Date(l.created_at);
       const key = `${d.getFullYear()}-${d.getMonth()}`;
@@ -239,23 +260,24 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
     });
     months.forEach((m) => { m.pct = m.total ? (m.required / m.total) * 100 : null; });
 
-    // Repairs by machine — last 90 days, ranked.
+    // Repairs by machine — last 90 days, ranked (all repairs).
     const recentByMachine = {};
-    recent.forEach((l) => { const n = l.machine_name || l.machine_id || 'Unknown'; recentByMachine[n] = (recentByMachine[n] || 0) + 1; });
+    logs.filter(isRecent).forEach((l) => { const n = l.machine_name || l.machine_id || 'Unknown'; recentByMachine[n] = (recentByMachine[n] || 0) + 1; });
     const recentRanking = Object.entries(recentByMachine)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
 
     return {
-      total, requiredAll,
-      pctAll: total ? (requiredAll / total) * 100 : 0,
-      recentTotal, recentRequired,
-      pctRecent: recentTotal ? (recentRequired / recentTotal) * 100 : 0,
+      requiredAll, maintTotal,
+      pctAll: maintTotal ? (requiredAll / maintTotal) * 100 : 0,
+      recentRequired, recentMaintTotal,
+      pctRecent: recentMaintTotal ? (recentRequired / recentMaintTotal) * 100 : 0,
+      recentTotal,
       machineSlices,
       months,
       recentRanking,
     };
-  }, [logs]);
+  }, [logs, maintenanceNames]);
   const [probPhotos, setProbPhotos] = useState([]);
   const [solPhotos, setSolPhotos] = useState([]);
 
