@@ -189,7 +189,7 @@ const fmtDate = (iso) => {
   try { return new Date(iso).toLocaleDateString(); } catch { return ''; }
 };
 
-export default function RepairLogManager({ machine, onBack, allMachines = false, canAnalytics = true, machineFilter }) {
+export default function RepairLogManager({ machine, onBack, allMachines = false, analyticsOnly = false, machineFilter }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);     // log id being edited, or null
@@ -205,7 +205,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
   const [details, setDetails] = useState('');
   const [technician, setTechnician] = useState('');
   const [andrewInput, setAndrewInput] = useState(null);   // 'yes' | 'no' | null
-  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(analyticsOnly);
   const [maintenanceNames, setMaintenanceNames] = useState(() => new Set());
 
   // Which technicians count toward the Andrew-J analytics (users flagged Maintenance).
@@ -420,7 +420,15 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
 
   // ── List view ──
   if (allMachines && showAnalytics) {
-    return <AnalyticsPanel analytics={analytics} onBack={() => setShowAnalytics(false)} />;
+    if (loading) {
+      return (
+        <div className="repair-wrap">
+          <button className="back-link" onClick={onBack} style={{ marginBottom: 12 }}>← Back</button>
+          <div className="loading-state"><span className="spinner" /> Loading analytics…</div>
+        </div>
+      );
+    }
+    return <AnalyticsPanel analytics={analytics} onBack={analyticsOnly ? onBack : () => setShowAnalytics(false)} />;
   }
 
   return (
@@ -435,9 +443,6 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
             ? <>Repair logs <span className="repair-context-machine">{Array.isArray(machineFilter) && machineFilter.length ? '(your machines)' : '(every machine)'}</span></>
             : <>Repair log for <span className="repair-context-machine">{machine.name}</span></>}
         </span>
-        {allMachines && canAnalytics && (
-          <button className="btn btn-sm" onClick={() => setShowAnalytics(true)}>Analytics</button>
-        )}
       </div>
 
       <div className="section">

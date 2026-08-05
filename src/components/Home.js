@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconChat, IconWrench, IconCalendar } from '../lib/icons';
+import { IconChat, IconWrench, IconCalendar, IconChart } from '../lib/icons';
 
 export default function Home({ onChoose, can = () => true, userName, soloMachine }) {
   return (
@@ -33,6 +33,17 @@ export default function Home({ onChoose, can = () => true, userName, soloMachine
             <span className="home-card-desc">
               See what's due, work through a machine's checklist, and log completed
               maintenance.
+            </span>
+          </button>
+        )}
+
+        {can('analytics') && (
+          <button className="home-card" onClick={() => onChoose('analytics')}>
+            <span className="home-card-icon"><IconChart /></span>
+            <span className="home-card-title">Analytics</span>
+            <span className="home-card-desc">
+              Repair trends, how often Andrew J's input was needed, and repairs by
+              machine.
             </span>
           </button>
         )}

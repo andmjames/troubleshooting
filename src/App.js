@@ -79,6 +79,7 @@ export default function App() {
   const choose = (m) => {
     if (m === 'edit') { setView('edit'); return; }
     if (m === 'settings') { setView('settings'); return; }
+    if (m === 'analytics') { setView('analytics'); return; }
     if (m === 'pm') { setInitialPmTask(null); setView('pm'); return; }
     setMode(m);
     setManualOrigin('picker');
@@ -131,6 +132,7 @@ export default function App() {
     : view === 'home' ? 'Troubleshooting'
     : view === 'edit' ? 'Edit Machines'
     : view === 'settings' ? 'Settings'
+    : view === 'analytics' ? 'Analytics'
     : view === 'pm' ? 'Preventative Maintenance'
     : view === 'pmEdit' ? 'Preventative Maintenance'
     : view === 'repairLogs' ? 'Repair Log'
@@ -214,6 +216,10 @@ export default function App() {
 
             {view === 'settings' && <Settings onBack={goHome} />}
 
+            {view === 'analytics' && (
+              <RepairLogManager allMachines analyticsOnly machineFilter={currentUser.machine_ids} onBack={goHome} />
+            )}
+
             {view === 'edit' && (
               <EditMachines
                 onBack={goHome}
@@ -236,7 +242,6 @@ export default function App() {
             {view === 'repairLogsAll' && (
               <RepairLogManager
                 allMachines
-                canAnalytics={can('analytics')}
                 machineFilter={currentUser.machine_ids}
                 onBack={() => setView(machine ? 'repair' : 'picker')}
               />
