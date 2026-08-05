@@ -218,8 +218,19 @@ exports.handler = async (event) => {
     .from('et_troubleshoot_jobs').select('*').eq('id', jobId).single();
   if (error || !job) return { statusCode: 404, body: 'Job not found' };
 
-  await sb.from('et_troubleshoot_jobs')
-    .update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', jobId);
+  // Atomically claim the job: only the invocation that flips it from 'pending'
+  // to 'running' proceeds. This lets the client safely re-kick an orphaned job
+  // (one whose trigger POST never landed) without two workers doing the same work.
+  const { data: claimed } = await sb
+    .from('et_troubleshoot_jobs')
+    .update({ status: 'running', updated_at: new Date().toISOString() })
+    .eq('id', jobId)
+    .eq('status', 'pending')
+    .select('id');
+  if (!claimed || claimed.length === 0) {
+    // Already claimed (running) or finished — don't double-run.
+    return { statusCode: 202, body: 'already claimed' };
+  }
 
   try {
     const result = await runJob(sb, job);
