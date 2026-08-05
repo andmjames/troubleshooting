@@ -162,16 +162,6 @@ export async function removeRepairLog(log) {
 }
 
 // ── Background troubleshooting: create a job, fire the worker, then poll ──
-export function kickTroubleshootWorker(jobId) {
-  // Fire-and-forget trigger for the background worker. Safe to call repeatedly —
-  // the worker claims the job atomically, so extra kicks don't double-process.
-  return fetch('/.netlify/functions/troubleshoot-background', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jobId }),
-  }).catch(() => {/* the poller retries the kick while the job stays pending */});
-}
-
 export async function createTroubleshootJob({ machineId, machineName, messages }) {
   const { data, error } = await supabase
     .from('et_troubleshoot_jobs')
@@ -184,14 +174,20 @@ export async function createTroubleshootJob({ machineId, machineName, messages }
     .single();
   if (error) throw error;
 
-  kickTroubleshootWorker(data.id);
+  // Kick off the background worker (returns 202 immediately; we don't await its work).
+  fetch('/.netlify/functions/troubleshoot-background', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jobId: data.id }),
+  }).catch(() => {/* worker still picks it up via the row if this fetch is flaky */});
+
   return data.id;
 }
 
 // Poll a job until it's done or errors. Resolves with the result object.
 export async function pollTroubleshootJob(jobId, { intervalMs = 1500, timeoutMs = 120000 } = {}) {
   const start = Date.now();
-  let lastKick = Date.now();   // we just kicked the worker when the job was created
+  // small helper
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   while (true) {
     const { data, error } = await supabase
@@ -202,12 +198,6 @@ export async function pollTroubleshootJob(jobId, { intervalMs = 1500, timeoutMs 
     if (error) throw error;
     if (data.status === 'done') return data.result;
     if (data.status === 'error') throw new Error(data.error || 'Troubleshooting failed');
-    // Still 'pending' means the worker never picked it up — the trigger POST likely
-    // didn't land. Re-kick every few seconds until it starts running.
-    if (data.status === 'pending' && Date.now() - lastKick > 5000) {
-      kickTroubleshootWorker(jobId);
-      lastKick = Date.now();
-    }
     if (Date.now() - start > timeoutMs) throw new Error('Timed out waiting for an answer');
     await wait(intervalMs);
   }
