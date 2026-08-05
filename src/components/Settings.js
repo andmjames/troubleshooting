@@ -4,11 +4,23 @@ import { PERMISSIONS, slugify } from '../lib/permissions';
 import { IconPlus } from '../lib/icons';
 import { useToast } from './Toast';
 
-function permSummary(u) {
+function permSummary(u, machines = []) {
   const maint = u.maintenance ? ' · Maintenance' : '';
   if (u.role === 'admin') return `Admin · full access${maint}`;
-  const granted = PERMISSIONS.filter((p) => u.permissions && u.permissions[p.key]).map((p) => p.label);
-  return (granted.length ? granted.join(', ') : 'No access granted') + maint;
+  const parts = [];
+  // Machine access (empty = all machines).
+  const ids = Array.isArray(u.machine_ids) ? u.machine_ids : [];
+  if (!ids.length) {
+    parts.push('All machines');
+  } else if (ids.length === 1) {
+    const m = machines.find((x) => Number(x.id) === Number(ids[0]));
+    parts.push(m ? m.name : '1 machine');
+  } else {
+    parts.push(`${ids.length} machines`);
+  }
+  // Granted permission areas.
+  PERMISSIONS.forEach((p) => { if (u.permissions && u.permissions[p.key]) parts.push(p.label); });
+  return parts.join(' · ') + maint;
 }
 
 export default function Settings({ onBack }) {
@@ -128,7 +140,7 @@ export default function Settings({ onBack }) {
                   <div key={u.id} className="machine-edit-row user-row" onClick={() => openPerms(u)}>
                     <div className="machine-edit-info">
                       <div className="machine-edit-name">{u.name}</div>
-                      <div className="machine-edit-meta">{permSummary(u)}</div>
+                      <div className="machine-edit-meta">{permSummary(u, machines)}</div>
                     </div>
                     <span className="user-row-chevron" aria-hidden="true">›</span>
                     <button
