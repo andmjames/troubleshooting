@@ -36,6 +36,23 @@ export default function App() {
   const [userNotFound, setUserNotFound] = useState(false);
 
   useEffect(() => {
+    // Support "Add to Home Screen": remember which user's URL this is, and if the
+    // app is later launched standalone straight to the root (some iOS versions
+    // drop the path), send it back to the last user URL.
+    try {
+      const p = window.location.pathname.replace(/^\/+|\/+$/g, '');
+      const standalone = window.navigator.standalone === true
+        || window.matchMedia('(display-mode: standalone)').matches;
+      if (p && !window.location.search.includes('pmtask')) {
+        localStorage.setItem('et_home_path', '/' + p);
+      } else if (!p && standalone) {
+        const saved = localStorage.getItem('et_home_path');
+        if (saved && saved !== '/') { window.location.replace(saved); }
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
     let alive = true;
     fetchUsers().then((us) => {
       if (!alive) return;
