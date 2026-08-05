@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Home from './components/Home';
 import MachinePicker from './components/MachinePicker';
 import TroubleshootChat from './components/TroubleshootChat';
@@ -12,7 +12,7 @@ import RepairLogManager from './components/RepairLogManager';
 import ManualManager from './components/ManualManager';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
-import { fetchUsers } from './lib/supabase';
+import { fetchUsers, fetchMachines } from './lib/supabase';
 import { hasPermission, slugify } from './lib/permissions';
 import { LOGO_SRC } from './logo';
 import './App.css';
@@ -65,6 +65,25 @@ export default function App() {
 
   const can = (key) => hasPermission(currentUser, key);
 
+  // The machines this user may work on. Empty machine_ids = all machines.
+  const [allMachines, setAllMachines] = useState([]);
+  const [machinesLoaded, setMachinesLoaded] = useState(false);
+  useEffect(() => {
+    if (!currentUser) return undefined;
+    let alive = true;
+    fetchMachines()
+      .then((ms) => { if (alive) { setAllMachines(ms); setMachinesLoaded(true); } })
+      .catch(() => { if (alive) setMachinesLoaded(true); });
+    return () => { alive = false; };
+  }, [currentUser]);
+
+  const allowedMachines = useMemo(() => {
+    const ids = (currentUser && Array.isArray(currentUser.machine_ids)) ? currentUser.machine_ids : [];
+    if (!ids.length) return allMachines;                 // no restriction = all
+    const set = new Set(ids.map(Number));
+    return allMachines.filter((m) => set.has(Number(m.id)));
+  }, [allMachines, currentUser]);
+
   const goHome = () => { setView('home'); setMode(null); setMachine(null); };
 
   const choose = (m) => {
@@ -73,6 +92,12 @@ export default function App() {
     if (m === 'pm') { setInitialPmTask(null); setView('pm'); return; }
     setMode(m);
     setManualOrigin('picker');
+    // If the user has exactly one machine, skip the picker and go straight to it.
+    if (machinesLoaded && allowedMachines.length === 1) {
+      setMachine(allowedMachines[0]);
+      setView(m === 'repair' ? 'repair' : 'chat');
+      return;
+    }
     setView('picker');
   };
 
@@ -81,7 +106,11 @@ export default function App() {
     setView(mode === 'repair' ? 'repair' : mode === 'manual' ? 'manual' : 'chat');
   };
 
-  const backToPicker = () => { setMachine(null); setView('picker'); };
+  const backToPicker = () => {
+    setMachine(null);
+    if (machinesLoaded && allowedMachines.length === 1) { setMode(null); setView('home'); }
+    else setView('picker');
+  };
 
   // Upload launched from the manuals manager — return there afterward.
   const uploadManualFromManager = (mc) => {
@@ -157,6 +186,8 @@ export default function App() {
                 mode={mode}
                 onSelect={pickMachine}
                 onBack={goHome}
+                machines={allowedMachines}
+                loading={!machinesLoaded}
                 actionLabel={mode === 'repair' ? 'View/Edit Repair Log Entries' : undefined}
                 onAction={mode === 'repair' ? () => setView('repairLogsAll') : undefined}
               />

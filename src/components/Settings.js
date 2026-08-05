@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { fetchUsers, addUser, removeUser, updateUser } from '../lib/supabase';
+import { fetchUsers, addUser, removeUser, updateUser, fetchMachines } from '../lib/supabase';
 import { PERMISSIONS, slugify } from '../lib/permissions';
 import { IconPlus } from '../lib/icons';
 import { useToast } from './Toast';
@@ -20,7 +20,9 @@ export default function Settings({ onBack }) {
   const [permTarget, setPermTarget] = useState(null);   // user whose permissions are open
   const [permRole, setPermRole] = useState('user');
   const [permDraft, setPermDraft] = useState({});
+  const [permMachines, setPermMachines] = useState([]);   // machine ids assigned to the open user
   const [permSaving, setPermSaving] = useState(false);
+  const [machines, setMachines] = useState([]);
   const toast = useToast();
 
   const load = useCallback(async () => {
@@ -31,6 +33,7 @@ export default function Settings({ onBack }) {
   }, [toast]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { fetchMachines().then(setMachines).catch(() => {}); }, []);
 
   const add = async () => {
     const n = name.trim();
@@ -62,12 +65,18 @@ export default function Settings({ onBack }) {
     }
   };
 
-  const openPerms = (u) => { setPermTarget(u); setPermRole(u.role || 'user'); setPermDraft({ ...(u.permissions || {}) }); };
+  const openPerms = (u) => {
+    setPermTarget(u);
+    setPermRole(u.role || 'user');
+    setPermDraft({ ...(u.permissions || {}) });
+    setPermMachines(Array.isArray(u.machine_ids) ? u.machine_ids.map(Number) : []);
+  };
   const togglePerm = (key) => setPermDraft((d) => ({ ...d, [key]: !d[key] }));
+  const toggleMachine = (id) => setPermMachines((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   const savePerms = async () => {
     setPermSaving(true);
     try {
-      await updateUser(permTarget.id, { role: permRole, permissions: permDraft });
+      await updateUser(permTarget.id, { role: permRole, permissions: permDraft, machine_ids: permMachines });
       setPermTarget(null);
       await load();
       toast('Permissions saved', 'success');
@@ -181,6 +190,29 @@ export default function Settings({ onBack }) {
                   </div>
                 </div>
               )}
+
+              <div style={{ marginTop: 16 }}>
+                <p className="perm-hint">Machines this user works on.</p>
+                {machines.length === 0 ? (
+                  <div className="picker-empty">No machines yet.</div>
+                ) : (
+                  <div className="perm-list">
+                    {machines.map((m) => (
+                      <label key={m.id} className="perm-row">
+                        <span>{m.name}</span>
+                        <input type="checkbox" checked={permMachines.includes(Number(m.id))} onChange={() => toggleMachine(Number(m.id))} />
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <p className="perm-subhint">
+                  {permMachines.length === 0
+                    ? 'None selected — this user can access all machines.'
+                    : permMachines.length === 1
+                      ? 'One machine — the picker is skipped and they go straight to it.'
+                      : `${permMachines.length} machines selected.`}
+                </p>
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setPermTarget(null)} disabled={permSaving}>Cancel</button>

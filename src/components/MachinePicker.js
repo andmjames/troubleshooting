@@ -2,19 +2,24 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { fetchMachines } from '../lib/supabase';
 import { useToast } from './Toast';
 
-export default function MachinePicker({ mode, onSelect, onBack, actionLabel, onAction }) {
-  const [machines, setMachines] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function MachinePicker({ mode, onSelect, onBack, actionLabel, onAction, machines: machinesProp, loading: loadingProp }) {
+  const [fetched, setFetched] = useState([]);
+  const [fetchLoading, setFetchLoading] = useState(true);
   const [q, setQ] = useState('');
   const toast = useToast();
+  const usingProp = machinesProp !== undefined;
 
   useEffect(() => {
+    if (usingProp) return undefined;   // caller supplied the machine list
     let alive = true;
     fetchMachines()
-      .then((m) => { if (alive) { setMachines(m); setLoading(false); } })
-      .catch((e) => { toast(e.message || 'Could not load machines', 'error'); setLoading(false); });
+      .then((m) => { if (alive) { setFetched(m); setFetchLoading(false); } })
+      .catch((e) => { toast(e.message || 'Could not load machines', 'error'); setFetchLoading(false); });
     return () => { alive = false; };
-  }, [toast]);
+  }, [toast, usingProp]);
+
+  const machines = usingProp ? machinesProp : fetched;
+  const loading = usingProp ? !!loadingProp : fetchLoading;
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
