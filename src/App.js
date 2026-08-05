@@ -172,7 +172,14 @@ export default function App() {
               </div>
             ) : (
             <>
-            {view === 'home' && <Home onChoose={choose} can={can} userName={currentUser.name} />}
+            {view === 'home' && (
+              <Home
+                onChoose={choose}
+                can={can}
+                userName={currentUser.name}
+                soloMachine={machinesLoaded && allowedMachines.length === 1 ? allowedMachines[0].name : null}
+              />
+            )}
 
             {view === 'picker' && (
               <MachinePicker

@@ -1,11 +1,11 @@
 import React from 'react';
 import { IconChat, IconWrench, IconCalendar } from '../lib/icons';
 
-export default function Home({ onChoose, can = () => true, userName }) {
+export default function Home({ onChoose, can = () => true, userName, soloMachine }) {
   return (
     <div className="home-wrap">
       <div className="home-eyebrow">PMI Tape · {userName || 'Troubleshooting'}</div>
-      <h1 className="home-title">Equipment Troubleshooting</h1>
+      <h1 className="home-title">{soloMachine ? `${soloMachine} Troubleshooting` : 'Equipment Troubleshooting'}</h1>
 
       <div className="home-cards home-cards-3">
         <button className="home-card" onClick={() => onChoose('troubleshoot')}>
