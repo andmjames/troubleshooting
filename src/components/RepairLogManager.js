@@ -189,7 +189,7 @@ const fmtDate = (iso) => {
   try { return new Date(iso).toLocaleDateString(); } catch { return ''; }
 };
 
-export default function RepairLogManager({ machine, onBack, allMachines = false, canAnalytics = true }) {
+export default function RepairLogManager({ machine, onBack, allMachines = false, canAnalytics = true, machineFilter }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);     // log id being edited, or null
@@ -284,13 +284,19 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setLogs(await (allMachines ? fetchAllRepairLogs() : fetchRepairLogs(machine.id)));
+      let data = await (allMachines ? fetchAllRepairLogs() : fetchRepairLogs(machine.id));
+      // Restrict to the user's machines (empty filter = all machines).
+      if (allMachines && Array.isArray(machineFilter) && machineFilter.length) {
+        const set = new Set(machineFilter.map(Number));
+        data = data.filter((l) => set.has(Number(l.machine_id)));
+      }
+      setLogs(data);
     } catch (e) {
       toast(e.message || 'Could not load repair logs', 'error');
     } finally {
       setLoading(false);
     }
-  }, [allMachines, machine, toast]);
+  }, [allMachines, machine, toast, machineFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -426,7 +432,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
       <div className="repair-context-bar">
         <span style={{ flex: 1 }}>
           {allMachines
-            ? <>All repair logs <span className="repair-context-machine">(every machine)</span></>
+            ? <>Repair logs <span className="repair-context-machine">{Array.isArray(machineFilter) && machineFilter.length ? '(your machines)' : '(every machine)'}</span></>
             : <>Repair log for <span className="repair-context-machine">{machine.name}</span></>}
         </span>
         {allMachines && canAnalytics && (

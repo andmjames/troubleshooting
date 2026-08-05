@@ -198,7 +198,14 @@ export default function App() {
             )}
 
             {view === 'repair' && machine && (
-              <RepairLog machine={machine} onBack={backToPicker} onDone={backToPicker} userName={currentUser.name} />
+              <RepairLog
+                machine={machine}
+                onBack={backToPicker}
+                onDone={backToPicker}
+                userName={currentUser.name}
+                onViewLogs={() => setView('repairLogsAll')}
+                multiMachine={machinesLoaded && allowedMachines.length > 1}
+              />
             )}
 
             {view === 'manual' && machine && (
@@ -227,7 +234,12 @@ export default function App() {
             )}
 
             {view === 'repairLogsAll' && (
-              <RepairLogManager allMachines canAnalytics={can('analytics')} onBack={() => setView('picker')} />
+              <RepairLogManager
+                allMachines
+                canAnalytics={can('analytics')}
+                machineFilter={currentUser.machine_ids}
+                onBack={() => setView(machine ? 'repair' : 'picker')}
+              />
             )}
 
             {view === 'manuals' && manualsMachine && (

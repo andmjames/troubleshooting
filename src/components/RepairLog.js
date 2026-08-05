@@ -30,7 +30,7 @@ function PhotoStrip({ photos, onAdd, onRemove, busy }) {
   );
 }
 
-export default function RepairLog({ machine, onBack, onDone, userName }) {
+export default function RepairLog({ machine, onBack, onDone, userName, onViewLogs, multiMachine }) {
   const [problem, setProblem] = useState('');
   const [solution, setSolution] = useState('');
   const [details, setDetails] = useState('');
@@ -149,8 +149,9 @@ export default function RepairLog({ machine, onBack, onDone, userName }) {
   return (
     <div className="repair-wrap">
       <div className="repair-context-bar">
-        Logging a solution for <span className="repair-context-machine">{machine.name}</span>
-        <button className="btn btn-ghost btn-sm" onClick={onBack}>Change machine</button>
+        <span style={{ flex: 1 }}>Logging a solution for <span className="repair-context-machine">{machine.name}</span></span>
+        {onViewLogs && <button className="btn btn-ghost btn-sm" onClick={onViewLogs}>View/Edit Repair Log Entries</button>}
+        {multiMachine && <button className="btn btn-ghost btn-sm" onClick={onBack}>Change machine</button>}
       </div>
 
       <div className="section">
