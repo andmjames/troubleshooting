@@ -273,6 +273,7 @@ body {
   border: .5px solid var(--border2);
   border-radius: var(--radius-lg);
   width: 100%; max-width: 520px;
+  max-height: 88vh; display: flex; flex-direction: column;
   box-shadow: 0 8px 32px rgba(0,0,0,.12);
   animation: scaleIn .15s ease;
 }
@@ -281,13 +282,15 @@ body {
   to   { transform: scale(1);   opacity: 1; }
 }
 .modal-header {
+  flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between;
   padding: 1rem 1.25rem;
   border-bottom: .5px solid var(--border);
 }
 .modal-title { font-size: 14px; font-weight: 600; color: var(--text); }
-.modal-body  { padding: 1.25rem; display: flex; flex-direction: column; gap: 12px; }
+.modal-body  { padding: 1.25rem; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .modal-footer {
+  flex-shrink: 0;
   display: flex; justify-content: flex-end; gap: 8px;
   padding: 1rem 1.25rem;
   border-top: .5px solid var(--border);
@@ -941,3 +944,20 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .pm-done-title { font-size: 18px; font-weight: 700; color: var(--text); }
 .pm-done-sub { font-size: 14px; color: var(--text2); margin-top: 6px; }
 .perm-inline-hint { font-size: 11px; font-weight: 400; color: var(--text3); }
+
+/* Collapsible, scrollable machines dropdown (Settings) */
+.machine-dd { border: .5px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.machine-dd > summary {
+  cursor: pointer; padding: 11px 12px; font-size: 14px; font-weight: 600; color: var(--text);
+  list-style: none; display: flex; align-items: center; gap: 10px;
+}
+.machine-dd > summary::-webkit-details-marker { display: none; }
+.machine-dd-label { flex: 1; min-width: 0; }
+.machine-dd > summary::after { content: '▾'; color: var(--text3); }
+.machine-dd[open] > summary::after { content: '▴'; }
+.machine-dd-count {
+  font-size: 12px; font-weight: 700; color: var(--text2);
+  background: var(--bg2); border-radius: 999px; padding: 2px 9px;
+}
+.machine-dd[open] > summary { border-bottom: .5px solid var(--border); }
+.machine-dd-list { max-height: 240px; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 12px; }

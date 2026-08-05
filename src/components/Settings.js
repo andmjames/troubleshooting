@@ -202,18 +202,28 @@ export default function Settings({ onBack }) {
               )}
 
               <div style={{ marginTop: 16 }}>
-                <p className="perm-hint">Machines this user works on.</p>
                 {machines.length === 0 ? (
-                  <div className="picker-empty">No machines yet.</div>
+                  <>
+                    <p className="perm-hint">Machines this user works on.</p>
+                    <div className="picker-empty">No machines yet.</div>
+                  </>
                 ) : (
-                  <div className="perm-list">
-                    {machines.map((m) => (
-                      <label key={m.id} className="perm-row">
-                        <span>{m.name}</span>
-                        <input type="checkbox" checked={permMachines.includes(Number(m.id))} onChange={() => toggleMachine(Number(m.id))} />
-                      </label>
-                    ))}
-                  </div>
+                  <details className="machine-dd">
+                    <summary>
+                      <span className="machine-dd-label">Machines this user works on</span>
+                      <span className="machine-dd-count">
+                        {permMachines.length === 0 ? 'All' : permMachines.length}
+                      </span>
+                    </summary>
+                    <div className="machine-dd-list">
+                      {machines.map((m) => (
+                        <label key={m.id} className="perm-row">
+                          <span>{m.name}</span>
+                          <input type="checkbox" checked={permMachines.includes(Number(m.id))} onChange={() => toggleMachine(Number(m.id))} />
+                        </label>
+                      ))}
+                    </div>
+                  </details>
                 )}
                 <p className="perm-subhint">
                   {permMachines.length === 0
