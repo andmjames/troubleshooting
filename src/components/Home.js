@@ -12,8 +12,8 @@ export default function Home({ onChoose, can = () => true, userName, soloMachine
           <span className="home-card-icon"><IconChat /></span>
           <span className="home-card-title">Help me with troubleshooting</span>
           <span className="home-card-desc">
-            Pick a machine, describe what's wrong, and get answers from past repairs,
-            the manuals, and the web.
+            Describe what's wrong and get answers based on past repairs, the
+            manuals, and the web.
           </span>
         </button>
 
