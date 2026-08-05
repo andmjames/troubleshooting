@@ -46,7 +46,7 @@ export default function Home({ onChoose, can = () => true, userName }) {
         )}
         {can('settings') && (
           <button className="text-link" onClick={() => onChoose('settings')}>
-            Settings
+            Admin Settings
           </button>
         )}
       </div>
