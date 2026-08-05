@@ -2,12 +2,14 @@ import React from 'react';
 import { IconChat, IconWrench, IconCalendar, IconChart } from '../lib/icons';
 
 export default function Home({ onChoose, can = () => true, userName, soloMachine }) {
+  // Troubleshooting + Log a solution are always shown; PM and Analytics are gated.
+  const tileCount = 2 + (can('preventative_maintenance') ? 1 : 0) + (can('analytics') ? 1 : 0);
   return (
     <div className="home-wrap">
       <div className="home-eyebrow">PMI Tape · {userName || 'Troubleshooting'}</div>
       <h1 className="home-title">{soloMachine ? `${soloMachine} Troubleshooting` : 'Equipment Troubleshooting'}</h1>
 
-      <div className="home-cards home-cards-3">
+      <div className={`home-cards ${tileCount === 4 ? 'home-cards-4' : 'home-cards-3'}`}>
         <button className="home-card" onClick={() => onChoose('troubleshoot')}>
           <span className="home-card-icon"><IconChat /></span>
           <span className="home-card-title">Help me with troubleshooting</span>

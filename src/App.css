@@ -363,6 +363,11 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 @media (max-width: 860px) {
   .home-cards-3 .home-card { flex-basis: 100%; }
 }
+/* Four tiles: 2 x 2 on desktop, stacked on mobile */
+.home-cards-4 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 560px; margin: 0 auto; }
+@media (max-width: 640px) {
+  .home-cards-4 { grid-template-columns: 1fr; }
+}
 
 /* Secondary action below the main cards */
 .home-footer-link { text-align: center; margin-top: 1.75rem; display: flex; flex-direction: column; gap: 12px; align-items: center; }
