@@ -75,7 +75,7 @@ export default function App() {
   const viewLogsFor = (mc) => { setLogsMachine(mc); setView('repairLogs'); };
 
   const pageTitle =
-    view === 'home' ? 'Maintenance'
+    view === 'home' ? 'Troubleshooting'
     : view === 'edit' ? 'Edit Machines'
     : view === 'settings' ? 'Settings'
     : view === 'pm' ? 'Preventative Maintenance'

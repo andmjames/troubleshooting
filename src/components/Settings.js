@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { fetchUsers, addUser, removeUser, updateUserPermissions } from '../lib/supabase';
+import { fetchUsers, addUser, removeUser, updateUser } from '../lib/supabase';
 import { IconPlus } from '../lib/icons';
 import { useToast } from './Toast';
 
@@ -11,7 +11,15 @@ export const PERMISSIONS = [
   { key: 'analytics', label: 'Analytics' },
 ];
 
+// Effective access check: admins have full access; everyone else uses their grants.
+export function hasPermission(user, key) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  return !!(user.permissions && user.permissions[key]);
+}
+
 function permSummary(u) {
+  if (u.role === 'admin') return 'Admin · full access';
   const granted = PERMISSIONS.filter((p) => u.permissions && u.permissions[p.key]).map((p) => p.label);
   return granted.length ? granted.join(', ') : 'No access granted';
 }
@@ -24,6 +32,7 @@ export default function Settings({ onBack }) {
   const [confirmDel, setConfirmDel] = useState(null);
   const [removing, setRemoving] = useState(false);
   const [permTarget, setPermTarget] = useState(null);   // user whose permissions are open
+  const [permRole, setPermRole] = useState('user');
   const [permDraft, setPermDraft] = useState({});
   const [permSaving, setPermSaving] = useState(false);
   const toast = useToast();
@@ -67,12 +76,12 @@ export default function Settings({ onBack }) {
     }
   };
 
-  const openPerms = (u) => { setPermTarget(u); setPermDraft({ ...(u.permissions || {}) }); };
+  const openPerms = (u) => { setPermTarget(u); setPermRole(u.role || 'user'); setPermDraft({ ...(u.permissions || {}) }); };
   const togglePerm = (key) => setPermDraft((d) => ({ ...d, [key]: !d[key] }));
   const savePerms = async () => {
     setPermSaving(true);
     try {
-      await updateUserPermissions(permTarget.id, permDraft);
+      await updateUser(permTarget.id, { role: permRole, permissions: permDraft });
       setPermTarget(null);
       await load();
       toast('Permissions saved', 'success');
@@ -142,15 +151,35 @@ export default function Settings({ onBack }) {
               <button className="modal-close" onClick={() => !permSaving && setPermTarget(null)}>×</button>
             </div>
             <div className="modal-body">
-              <p className="perm-hint">Choose which areas this user can access.</p>
-              <div className="perm-list">
-                {PERMISSIONS.map((p) => (
-                  <label key={p.key} className="perm-row">
-                    <span>{p.label}</span>
-                    <input type="checkbox" checked={!!permDraft[p.key]} onChange={() => togglePerm(p.key)} />
+              <div className="field-group">
+                <label className="field-label">Role</label>
+                <div className="radio-row">
+                  <label className="radio-opt">
+                    <input type="radio" name="role" checked={permRole === 'admin'} onChange={() => setPermRole('admin')} />
+                    <span>Admin</span>
                   </label>
-                ))}
+                  <label className="radio-opt">
+                    <input type="radio" name="role" checked={permRole !== 'admin'} onChange={() => setPermRole('user')} />
+                    <span>Standard</span>
+                  </label>
+                </div>
               </div>
+
+              {permRole === 'admin' ? (
+                <p className="perm-hint" style={{ marginTop: 14 }}>Admins have full access to every area, including all permissions.</p>
+              ) : (
+                <div style={{ marginTop: 14 }}>
+                  <p className="perm-hint">Choose which areas this user can access.</p>
+                  <div className="perm-list">
+                    {PERMISSIONS.map((p) => (
+                      <label key={p.key} className="perm-row">
+                        <span>{p.label}</span>
+                        <input type="checkbox" checked={!!permDraft[p.key]} onChange={() => togglePerm(p.key)} />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setPermTarget(null)} disabled={permSaving}>Cancel</button>
