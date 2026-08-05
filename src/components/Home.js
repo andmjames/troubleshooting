@@ -1,10 +1,10 @@
 import React from 'react';
 import { IconChat, IconWrench, IconCalendar } from '../lib/icons';
 
-export default function Home({ onChoose }) {
+export default function Home({ onChoose, can = () => true, userName }) {
   return (
     <div className="home-wrap">
-      <div className="home-eyebrow">PMI Tape · Maintenance</div>
+      <div className="home-eyebrow">PMI Tape · {userName || 'Troubleshooting'}</div>
       <h1 className="home-title">Equipment Troubleshooting</h1>
 
       <div className="home-cards home-cards-3">
@@ -26,23 +26,29 @@ export default function Home({ onChoose }) {
           </span>
         </button>
 
-        <button className="home-card" onClick={() => onChoose('pm')}>
-          <span className="home-card-icon"><IconCalendar /></span>
-          <span className="home-card-title">Preventative maintenance</span>
-          <span className="home-card-desc">
-            See what's due, work through a machine's checklist, and log completed
-            maintenance.
-          </span>
-        </button>
+        {can('preventative_maintenance') && (
+          <button className="home-card" onClick={() => onChoose('pm')}>
+            <span className="home-card-icon"><IconCalendar /></span>
+            <span className="home-card-title">Preventative maintenance</span>
+            <span className="home-card-desc">
+              See what's due, work through a machine's checklist, and log completed
+              maintenance.
+            </span>
+          </button>
+        )}
       </div>
 
       <div className="home-footer-link">
-        <button className="text-link" onClick={() => onChoose('edit')}>
-          Edit machines
-        </button>
-        <button className="text-link" onClick={() => onChoose('settings')}>
-          Settings
-        </button>
+        {can('edit_machines') && (
+          <button className="text-link" onClick={() => onChoose('edit')}>
+            Edit machines
+          </button>
+        )}
+        {can('settings') && (
+          <button className="text-link" onClick={() => onChoose('settings')}>
+            Settings
+          </button>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Home from './components/Home';
 import MachinePicker from './components/MachinePicker';
 import TroubleshootChat from './components/TroubleshootChat';
@@ -6,12 +6,15 @@ import RepairLog from './components/RepairLog';
 import UploadManual from './components/UploadManual';
 import EditMachines from './components/EditMachines';
 import Settings from './components/Settings';
+import UserPicker from './components/UserPicker';
 import PreventativeMaintenance from './components/PreventativeMaintenance';
 import PMEditor from './components/PMEditor';
 import RepairLogManager from './components/RepairLogManager';
 import ManualManager from './components/ManualManager';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
+import { fetchUsers } from './lib/supabase';
+import { hasPermission, slugify } from './lib/permissions';
 import { LOGO_SRC } from './logo';
 import './App.css';
 
@@ -26,11 +29,48 @@ export default function App() {
   const [manualsMachine, setManualsMachine] = useState(null); // machine whose manuals are being managed
   const [initialPmTask, setInitialPmTask] = useState(null);   // PM task id from a shared ?pmtask= link
 
-  // On first load, honor a shared deep link like ?pmtask=123 by opening the PM section on that task.
+  // Identity-by-URL: the path (/andrew-james) selects whose permission-scoped
+  // interface to show. No path → a profile picker. This is NOT authentication —
+  // anyone with a URL, or who picks a name, gets that interface.
+  const [currentUser, setCurrentUser] = useState(null);
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [userNotFound, setUserNotFound] = useState(false);
+
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('pmtask');
-    if (id) { setInitialPmTask(id); setView('pm'); }
+    let alive = true;
+    fetchUsers().then((us) => {
+      if (!alive) return;
+      const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+      if (path) {
+        const u = us.find((x) => slugify(x.name) === path || String(x.id) === path) || null;
+        if (u) setCurrentUser(u); else setUserNotFound(true);
+      }
+      setUsersLoaded(true);
+    }).catch(() => setUsersLoaded(true));
+    return () => { alive = false; };
   }, []);
+
+  // Honor a shared deep link like ?pmtask=123 once we know who the user is — but
+  // only if they can access Preventative maintenance. Works whether the user was
+  // identified from the URL or picked from the profile screen.
+  const pmHandled = useRef(false);
+  useEffect(() => {
+    if (pmHandled.current || !currentUser) return;
+    const pmId = new URLSearchParams(window.location.search).get('pmtask');
+    if (pmId && hasPermission(currentUser, 'preventative_maintenance')) {
+      setInitialPmTask(pmId);
+      setView('pm');
+    }
+    pmHandled.current = true;
+  }, [currentUser]);
+
+  const pickUser = (u) => {
+    window.history.pushState({}, '', '/' + slugify(u.name));
+    setCurrentUser(u);
+    setUserNotFound(false);
+  };
+
+  const can = (key) => hasPermission(currentUser, key);
 
   const goHome = () => { setView('home'); setMode(null); setMachine(null); };
 
@@ -100,7 +140,13 @@ export default function App() {
           </header>
 
           <main className="app-main">
-            {view === 'home' && <Home onChoose={choose} />}
+            {!usersLoaded ? (
+              <div className="loading-state" style={{ marginTop: 40 }}><span className="spinner" /> Loading…</div>
+            ) : !currentUser ? (
+              <UserPicker onPick={pickUser} notFound={userNotFound} />
+            ) : (
+            <>
+            {view === 'home' && <Home onChoose={choose} can={can} userName={currentUser.name} />}
 
             {view === 'picker' && (
               <MachinePicker
@@ -146,11 +192,13 @@ export default function App() {
             )}
 
             {view === 'repairLogsAll' && (
-              <RepairLogManager allMachines onBack={() => setView('picker')} />
+              <RepairLogManager allMachines canAnalytics={can('analytics')} onBack={() => setView('picker')} />
             )}
 
             {view === 'manuals' && manualsMachine && (
               <ManualManager machine={manualsMachine} onBack={() => setView('edit')} onUpload={uploadManualFromManager} />
+            )}
+            </>
             )}
           </main>
         </div>

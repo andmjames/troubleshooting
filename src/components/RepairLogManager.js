@@ -189,7 +189,7 @@ const fmtDate = (iso) => {
   try { return new Date(iso).toLocaleDateString(); } catch { return ''; }
 };
 
-export default function RepairLogManager({ machine, onBack, allMachines = false }) {
+export default function RepairLogManager({ machine, onBack, allMachines = false, canAnalytics = true }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);     // log id being edited, or null
@@ -407,7 +407,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false 
             ? <>All repair logs <span className="repair-context-machine">(every machine)</span></>
             : <>Repair log for <span className="repair-context-machine">{machine.name}</span></>}
         </span>
-        {allMachines && (
+        {allMachines && canAnalytics && (
           <button className="btn btn-sm" onClick={() => setShowAnalytics(true)}>Analytics</button>
         )}
       </div>

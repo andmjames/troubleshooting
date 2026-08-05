@@ -1,22 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { fetchUsers, addUser, removeUser, updateUser } from '../lib/supabase';
+import { PERMISSIONS, slugify } from '../lib/permissions';
 import { IconPlus } from '../lib/icons';
 import { useToast } from './Toast';
-
-// Areas a user can be granted access to.
-export const PERMISSIONS = [
-  { key: 'preventative_maintenance', label: 'Preventative maintenance' },
-  { key: 'settings', label: 'Settings' },
-  { key: 'edit_machines', label: 'Edit machines' },
-  { key: 'analytics', label: 'Analytics' },
-];
-
-// Effective access check: admins have full access; everyone else uses their grants.
-export function hasPermission(user, key) {
-  if (!user) return false;
-  if (user.role === 'admin') return true;
-  return !!(user.permissions && user.permissions[key]);
-}
 
 function permSummary(u) {
   if (u.role === 'admin') return 'Admin · full access';
@@ -152,6 +138,21 @@ export default function Settings({ onBack }) {
             </div>
             <div className="modal-body">
               <div className="field-group">
+                <label className="field-label">Interface URL</label>
+                <div className="user-url-row">
+                  <code className="user-url">{`${window.location.origin}/${slugify(permTarget.name)}`}</code>
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => {
+                      const url = `${window.location.origin}/${slugify(permTarget.name)}`;
+                      if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast('Link copied', 'success'), () => toast('Copy failed', 'error'));
+                      else toast('Copy not supported', 'error');
+                    }}
+                  >Copy</button>
+                </div>
+              </div>
+
+              <div className="field-group" style={{ marginTop: 14 }}>
                 <label className="field-label">Role</label>
                 <div className="radio-row">
                   <label className="radio-opt">

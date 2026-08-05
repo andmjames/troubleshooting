@@ -918,3 +918,14 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 }
 .perm-row:last-child { border-bottom: none; }
 .perm-row input { width: 18px; height: 18px; accent-color: var(--text); cursor: pointer; flex-shrink: 0; }
+
+/* Per-user interface URL (Settings) + admin badge (UserPicker) */
+.user-url-row { display: flex; gap: 8px; align-items: center; }
+.user-url {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; background: var(--bg2); padding: 8px 10px; border-radius: 6px; color: var(--text2);
+}
+.user-badge {
+  margin-left: auto; font-size: 11px; font-weight: 700; color: #1a56db;
+  background: #e8f0fe; border-radius: 999px; padding: 2px 8px;
+}
