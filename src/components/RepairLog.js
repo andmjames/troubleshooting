@@ -34,7 +34,10 @@ export default function RepairLog({ machine, onBack, onDone, userName }) {
   const [problem, setProblem] = useState('');
   const [solution, setSolution] = useState('');
   const [details, setDetails] = useState('');
-  const [andrewInput, setAndrewInput] = useState(null);      // 'yes' | 'no' — required
+  const [andrewInput, setAndrewInput] = useState(null);      // 'yes' | 'no' — required for Ryan Small only
+
+  // Only Ryan Small is asked whether the repair required Andrew J's input.
+  const asksAndrew = (userName || '').trim().toLowerCase() === 'ryan small';
   const [problemPhotos, setProblemPhotos] = useState([]);   // {file, preview}
   const [solutionPhotos, setSolutionPhotos] = useState([]);
   const [intake, setIntake] = useState([]);                  // AI follow-up questions
@@ -57,7 +60,7 @@ export default function RepairLog({ machine, onBack, onDone, userName }) {
       toast('Add the problem and the solution first', 'error');
       return;
     }
-    if (!andrewInput) {
+    if (asksAndrew && !andrewInput) {
       toast('Select whether this required input from Andrew J', 'error');
       return;
     }
@@ -110,7 +113,7 @@ export default function RepairLog({ machine, onBack, onDone, userName }) {
         solution: solution.trim(),
         details: details.trim() || null,
         technician: (userName || '').trim() || null,
-        required_andrew_input: andrewInput === 'yes',
+        required_andrew_input: asksAndrew ? (andrewInput === 'yes') : null,
         problem_photos: pPhotos,
         solution_photos: sPhotos,
       });
@@ -186,19 +189,21 @@ export default function RepairLog({ machine, onBack, onDone, userName }) {
           <label className="field-label" style={{ marginTop: 14, display: 'block' }}>Photos of the fix (optional)</label>
           <PhotoStrip photos={solutionPhotos} onAdd={addPhotos(setSolutionPhotos)} onRemove={removePhoto(setSolutionPhotos)} busy={busy} />
 
-          <div className="field-group" style={{ marginTop: 14 }}>
-            <label className="field-label">Did this repair require input from Andrew J? <span className="field-req">*</span></label>
-            <div className="radio-row">
-              <label className="radio-opt">
-                <input type="radio" name="andrewInput" checked={andrewInput === 'yes'} onChange={() => setAndrewInput('yes')} />
-                <span>Yes</span>
-              </label>
-              <label className="radio-opt">
-                <input type="radio" name="andrewInput" checked={andrewInput === 'no'} onChange={() => setAndrewInput('no')} />
-                <span>No</span>
-              </label>
+          {asksAndrew && (
+            <div className="field-group" style={{ marginTop: 14 }}>
+              <label className="field-label">Did this repair require input from Andrew J? <span className="field-req">*</span></label>
+              <div className="radio-row">
+                <label className="radio-opt">
+                  <input type="radio" name="andrewInput" checked={andrewInput === 'yes'} onChange={() => setAndrewInput('yes')} />
+                  <span>Yes</span>
+                </label>
+                <label className="radio-opt">
+                  <input type="radio" name="andrewInput" checked={andrewInput === 'no'} onChange={() => setAndrewInput('no')} />
+                  <span>No</span>
+                </label>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -225,7 +230,7 @@ export default function RepairLog({ machine, onBack, onDone, userName }) {
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
         <button className="btn btn-ghost" onClick={onBack} disabled={busy}>Cancel</button>
         {!intakeAsked ? (
-          <button className="btn btn-primary" onClick={checkDetails} disabled={busy || !problem.trim() || !solution.trim() || !andrewInput}>
+          <button className="btn btn-primary" onClick={checkDetails} disabled={busy || !problem.trim() || !solution.trim() || (asksAndrew && !andrewInput)}>
             {checking ? <><span className="spinner" /> Reviewing…</> : 'Review & save'}
           </button>
         ) : (
