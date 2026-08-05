@@ -158,10 +158,11 @@ export default function TroubleshootChat({ machine, onClose }) {
         images: data.images || [],
       }]);
     } catch (e) {
-      toast(e.message || 'Something went wrong', 'error');
+      const msg = e && e.message ? e.message : 'Something went wrong';
+      toast(msg, 'error');
       setMessages((m) => [...m, {
         role: 'assistant',
-        content: "I couldn't get an answer that time. Try again in a moment.",
+        content: `I couldn't get an answer. ${msg}`,
       }]);
     } finally {
       setBusy(false);

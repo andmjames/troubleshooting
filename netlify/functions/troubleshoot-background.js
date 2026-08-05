@@ -213,22 +213,38 @@ exports.handler = async (event) => {
   catch { return { statusCode: 400, body: 'Bad JSON' }; }
   if (!jobId) return { statusCode: 400, body: 'Missing jobId' };
 
-  const sb = admin();
-  const { data: job, error } = await sb
-    .from('et_troubleshoot_jobs').select('*').eq('id', jobId).single();
-  if (error || !job) return { statusCode: 404, body: 'Job not found' };
+  // Build the service-role client. If this throws (missing SUPABASE_URL/KEY), we
+  // have nothing to write the error to — log and bail so it's at least in the
+  // function logs, and the chat's self-test will report the same problem.
+  let sb;
+  try { sb = admin(); }
+  catch (e) { console.error('troubleshoot-background: admin() failed:', e); return { statusCode: 500, body: 'admin init failed' }; }
 
-  await sb.from('et_troubleshoot_jobs')
-    .update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', jobId);
+  // Record a failure on the job row so the chat surfaces it instead of hanging.
+  const fail = async (msg) => {
+    const text = String(msg || 'Unknown error').slice(0, 500);
+    console.error('troubleshoot-background error:', text);
+    try {
+      await sb.from('et_troubleshoot_jobs')
+        .update({ status: 'error', error: text, updated_at: new Date().toISOString() })
+        .eq('id', jobId);
+    } catch (e2) { console.error('troubleshoot-background: could not write error to job:', e2); }
+  };
 
   try {
+    const { data: job, error } = await sb
+      .from('et_troubleshoot_jobs').select('*').eq('id', jobId).single();
+    if (error) { await fail(`Could not load job: ${error.message}`); return { statusCode: 202, body: 'error recorded' }; }
+    if (!job) return { statusCode: 404, body: 'Job not found' };
+
+    await sb.from('et_troubleshoot_jobs')
+      .update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', jobId);
+
     const result = await runJob(sb, job);
     await sb.from('et_troubleshoot_jobs')
       .update({ status: 'done', result, updated_at: new Date().toISOString() }).eq('id', jobId);
   } catch (e) {
-    await sb.from('et_troubleshoot_jobs')
-      .update({ status: 'error', error: String(e.message || e), updated_at: new Date().toISOString() })
-      .eq('id', jobId);
+    await fail(e && e.message ? e.message : e);
   }
   // Background functions return 202; body is ignored.
   return { statusCode: 202, body: 'processing' };

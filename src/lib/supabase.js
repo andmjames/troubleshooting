@@ -184,10 +184,34 @@ export async function createTroubleshootJob({ machineId, machineName, messages }
   return data.id;
 }
 
+// Ask the server to check its own environment (env vars + service-role Supabase
+// access). Returns a short human-readable diagnosis for the chat.
+export async function selfTestTroubleshoot() {
+  try {
+    const res = await fetch('/.netlify/functions/troubleshoot-selftest', { method: 'POST' });
+    const j = await res.json();
+    if (j.ok) {
+      return "the server environment is healthy (Supabase + keys OK), so the background worker itself isn't being invoked — likely a Netlify background-function or deploy issue.";
+    }
+    const parts = [];
+    const env = j.checks && j.checks.env;
+    if (env) {
+      const missing = Object.keys(env).filter((k) => !env[k]);
+      if (missing.length) parts.push(`missing server config: ${missing.join(', ')}`);
+    }
+    if (j.checks && j.checks.supabase && j.checks.supabase !== 'ok') {
+      parts.push(`Supabase check ${j.checks.supabase}`);
+    }
+    return parts.length ? parts.join('; ') + '.' : 'the server self-test failed.';
+  } catch (e) {
+    return `the server self-test could not be reached (${String(e.message || e)}).`;
+  }
+}
+
 // Poll a job until it's done or errors. Resolves with the result object.
-export async function pollTroubleshootJob(jobId, { intervalMs = 1500, timeoutMs = 120000 } = {}) {
+export async function pollTroubleshootJob(jobId, { intervalMs = 1500, timeoutMs = 120000, stallMs = 18000 } = {}) {
   const start = Date.now();
-  // small helper
+  let sawRunning = false;
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   while (true) {
     const { data, error } = await supabase
@@ -198,7 +222,22 @@ export async function pollTroubleshootJob(jobId, { intervalMs = 1500, timeoutMs 
     if (error) throw error;
     if (data.status === 'done') return data.result;
     if (data.status === 'error') throw new Error(data.error || 'Troubleshooting failed');
-    if (Date.now() - start > timeoutMs) throw new Error('Timed out waiting for an answer');
+    if (data.status === 'running') sawRunning = true;
+
+    const elapsed = Date.now() - start;
+    // If the worker never even started (still 'pending' well past when it should
+    // have claimed the job), stop waiting and report WHY via the self-test.
+    if (!sawRunning && elapsed > stallMs) {
+      const diag = await selfTestTroubleshoot();
+      throw new Error(`The troubleshooting worker didn't start — ${diag}`);
+    }
+    if (elapsed > timeoutMs) {
+      if (!sawRunning) {
+        const diag = await selfTestTroubleshoot();
+        throw new Error(`The troubleshooting worker didn't start — ${diag}`);
+      }
+      throw new Error('The worker started but did not finish in time. Please try again.');
+    }
     await wait(intervalMs);
   }
 }
