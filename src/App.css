@@ -361,7 +361,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 }
 
 /* Secondary action below the main cards */
-.home-footer-link { text-align: center; margin-top: 1.75rem; display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
+.home-footer-link { text-align: center; margin-top: 1.75rem; display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .text-link {
   background: none; border: none; cursor: pointer;
   font-family: inherit; font-size: 13px; color: var(--text2);
@@ -901,3 +901,6 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .rank-bar-track { flex: 1; height: 14px; background: var(--bg2); border-radius: 7px; overflow: hidden; }
 .rank-bar-fill { display: block; height: 100%; background: var(--text); border-radius: 7px; min-width: 2px; }
 .rank-count { width: 26px; text-align: right; color: var(--text2); font-weight: 700; flex-shrink: 0; }
+.user-add-row { display: flex; gap: 10px; align-items: stretch; }
+.user-add-row .field-input { flex: 1; min-width: 0; }
+.user-add-row .btn { flex-shrink: 0; }

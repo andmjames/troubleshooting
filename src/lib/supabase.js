@@ -5,6 +5,29 @@ const anonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(url, anonKey);
 
+// ── Users (managed in Settings) ──
+export async function fetchUsers() {
+  const { data, error } = await supabase
+    .from('et_users')
+    .select('id, name, created_at')
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+export async function addUser(name) {
+  const { data, error } = await supabase
+    .from('et_users')
+    .insert({ name: (name || '').trim() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+export async function removeUser(id) {
+  const { error } = await supabase.from('et_users').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // Machines list for the picker (shared by both flows)
 export async function fetchMachines() {
   const { data, error } = await supabase

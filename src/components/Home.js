@@ -6,7 +6,6 @@ export default function Home({ onChoose }) {
     <div className="home-wrap">
       <div className="home-eyebrow">PMI Tape · Maintenance</div>
       <h1 className="home-title">Equipment Troubleshooting</h1>
-      <p className="home-sub">Get troubleshooting help, log a repair, or stay on top of preventative maintenance.</p>
 
       <div className="home-cards home-cards-3">
         <button className="home-card" onClick={() => onChoose('troubleshoot')}>
@@ -20,7 +19,7 @@ export default function Home({ onChoose }) {
 
         <button className="home-card" onClick={() => onChoose('repair')}>
           <span className="home-card-icon"><IconWrench /></span>
-          <span className="home-card-title">Log a repair</span>
+          <span className="home-card-title">Log a solution</span>
           <span className="home-card-desc">
             Record a problem and how you fixed it, with photos, so it's there next
             time something similar happens.
@@ -40,6 +39,9 @@ export default function Home({ onChoose }) {
       <div className="home-footer-link">
         <button className="text-link" onClick={() => onChoose('edit')}>
           Edit machines
+        </button>
+        <button className="text-link" onClick={() => onChoose('settings')}>
+          Settings
         </button>
       </div>
     </div>

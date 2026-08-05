@@ -151,7 +151,7 @@ export default function RepairLog({ machine, onBack, onDone }) {
   return (
     <div className="repair-wrap">
       <div className="repair-context-bar">
-        Logging a repair for <span className="repair-context-machine">{machine.name}</span>
+        Logging a solution for <span className="repair-context-machine">{machine.name}</span>
         <button className="btn btn-ghost btn-sm" onClick={onBack}>Change machine</button>
       </div>
 

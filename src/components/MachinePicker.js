@@ -26,11 +26,11 @@ export default function MachinePicker({ mode, onSelect, onBack, actionLabel, onA
     );
   }, [q, machines]);
 
-  const title = mode === 'repair' ? 'Log a repair'
+  const title = mode === 'repair' ? 'Log a solution'
     : mode === 'manual' ? 'Add a manual'
     : 'Troubleshooting help';
   const sub = mode === 'repair'
-    ? 'Which machine did you repair?'
+    ? 'Which machine is this solution for?'
     : mode === 'manual'
       ? 'Which machine is this manual for?'
       : 'Which machine are you having trouble with?';

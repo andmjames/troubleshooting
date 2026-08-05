@@ -5,6 +5,7 @@ import TroubleshootChat from './components/TroubleshootChat';
 import RepairLog from './components/RepairLog';
 import UploadManual from './components/UploadManual';
 import EditMachines from './components/EditMachines';
+import Settings from './components/Settings';
 import PreventativeMaintenance from './components/PreventativeMaintenance';
 import PMEditor from './components/PMEditor';
 import RepairLogManager from './components/RepairLogManager';
@@ -35,6 +36,7 @@ export default function App() {
 
   const choose = (m) => {
     if (m === 'edit') { setView('edit'); return; }
+    if (m === 'settings') { setView('settings'); return; }
     if (m === 'pm') { setInitialPmTask(null); setView('pm'); return; }
     setMode(m);
     setManualOrigin('picker');
@@ -75,12 +77,13 @@ export default function App() {
   const pageTitle =
     view === 'home' ? 'Maintenance'
     : view === 'edit' ? 'Edit Machines'
+    : view === 'settings' ? 'Settings'
     : view === 'pm' ? 'Preventative Maintenance'
     : view === 'pmEdit' ? 'Preventative Maintenance'
     : view === 'repairLogs' ? 'Repair Log'
     : view === 'repairLogsAll' ? 'Repair Logs'
     : view === 'manuals' ? 'Manuals'
-    : mode === 'repair' ? 'Log a Repair'
+    : mode === 'repair' ? 'Log a Solution'
     : mode === 'manual' ? 'Add a Manual'
     : 'Troubleshooting';
 
@@ -120,6 +123,8 @@ export default function App() {
             {view === 'manual' && machine && (
               <UploadManual machine={machine} onBack={manualBack} onAnother={manualAnother} />
             )}
+
+            {view === 'settings' && <Settings onBack={goHome} />}
 
             {view === 'edit' && (
               <EditMachines
