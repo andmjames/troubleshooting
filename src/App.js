@@ -167,7 +167,7 @@ export default function App() {
             )}
 
             {view === 'repair' && machine && (
-              <RepairLog machine={machine} onBack={backToPicker} onDone={backToPicker} />
+              <RepairLog machine={machine} onBack={backToPicker} onDone={backToPicker} userName={currentUser.name} />
             )}
 
             {view === 'manual' && machine && (

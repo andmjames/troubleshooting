@@ -30,11 +30,10 @@ function PhotoStrip({ photos, onAdd, onRemove, busy }) {
   );
 }
 
-export default function RepairLog({ machine, onBack, onDone }) {
+export default function RepairLog({ machine, onBack, onDone, userName }) {
   const [problem, setProblem] = useState('');
   const [solution, setSolution] = useState('');
   const [details, setDetails] = useState('');
-  const [technician, setTechnician] = useState('');
   const [andrewInput, setAndrewInput] = useState(null);      // 'yes' | 'no' — required
   const [problemPhotos, setProblemPhotos] = useState([]);   // {file, preview}
   const [solutionPhotos, setSolutionPhotos] = useState([]);
@@ -56,10 +55,6 @@ export default function RepairLog({ machine, onBack, onDone }) {
   const checkDetails = async () => {
     if (!problem.trim() || !solution.trim()) {
       toast('Add the problem and the solution first', 'error');
-      return;
-    }
-    if (!technician.trim()) {
-      toast('Enter your name', 'error');
       return;
     }
     if (!andrewInput) {
@@ -114,7 +109,7 @@ export default function RepairLog({ machine, onBack, onDone }) {
         problem: problem.trim(),
         solution: solution.trim(),
         details: details.trim() || null,
-        technician: technician.trim() || null,
+        technician: (userName || '').trim() || null,
         required_andrew_input: andrewInput === 'yes',
         problem_photos: pPhotos,
         solution_photos: sPhotos,
@@ -192,11 +187,6 @@ export default function RepairLog({ machine, onBack, onDone }) {
           <PhotoStrip photos={solutionPhotos} onAdd={addPhotos(setSolutionPhotos)} onRemove={removePhoto(setSolutionPhotos)} busy={busy} />
 
           <div className="field-group" style={{ marginTop: 14 }}>
-            <label className="field-label">Your name <span className="field-req">*</span></label>
-            <input className="field-input" value={technician} onChange={(e) => setTechnician(e.target.value)} placeholder="Who did the repair?" />
-          </div>
-
-          <div className="field-group" style={{ marginTop: 14 }}>
             <label className="field-label">Did this repair require input from Andrew J? <span className="field-req">*</span></label>
             <div className="radio-row">
               <label className="radio-opt">
@@ -235,7 +225,7 @@ export default function RepairLog({ machine, onBack, onDone }) {
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
         <button className="btn btn-ghost" onClick={onBack} disabled={busy}>Cancel</button>
         {!intakeAsked ? (
-          <button className="btn btn-primary" onClick={checkDetails} disabled={busy || !problem.trim() || !solution.trim() || !technician.trim() || !andrewInput}>
+          <button className="btn btn-primary" onClick={checkDetails} disabled={busy || !problem.trim() || !solution.trim() || !andrewInput}>
             {checking ? <><span className="spinner" /> Reviewing…</> : 'Review & save'}
           </button>
         ) : (
