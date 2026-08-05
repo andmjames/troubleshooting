@@ -962,3 +962,8 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 }
 .machine-dd[open] > summary { border-bottom: .5px solid var(--border); }
 .machine-dd-list { max-height: 240px; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 12px; }
+.machine-dd-allrow {
+  display: flex; justify-content: flex-end;
+  padding: 8px 0 6px; border-bottom: .5px solid var(--border);
+  position: sticky; top: 0; background: var(--bg);
+}

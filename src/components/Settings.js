@@ -76,6 +76,8 @@ export default function Settings({ onBack }) {
   };
   const togglePerm = (key) => setPermDraft((d) => ({ ...d, [key]: !d[key] }));
   const toggleMachine = (id) => setPermMachines((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  const allMachinesSelected = machines.length > 0 && permMachines.length === machines.length;
+  const toggleAllMachines = () => setPermMachines(allMachinesSelected ? [] : machines.map((m) => Number(m.id)));
   const savePerms = async () => {
     setPermSaving(true);
     try {
@@ -216,6 +218,11 @@ export default function Settings({ onBack }) {
                       </span>
                     </summary>
                     <div className="machine-dd-list">
+                      <div className="machine-dd-allrow">
+                        <button type="button" className="text-link" onClick={toggleAllMachines}>
+                          {allMachinesSelected ? 'Clear all' : 'Select all'}
+                        </button>
+                      </div>
                       {machines.map((m) => (
                         <label key={m.id} className="perm-row">
                           <span>{m.name}</span>
