@@ -190,7 +190,7 @@ export default function App() {
                 onBack={goHome}
                 machines={allowedMachines}
                 loading={!machinesLoaded}
-                actionLabel={mode === 'repair' ? 'View/Edit Repair Log Entries' : undefined}
+                actionLabel={mode === 'repair' ? 'View/Edit Log Entries' : undefined}
                 onAction={mode === 'repair' ? () => setView('repairLogsAll') : undefined}
               />
             )}

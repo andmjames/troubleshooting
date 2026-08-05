@@ -150,7 +150,7 @@ export default function RepairLog({ machine, onBack, onDone, userName, onViewLog
     <div className="repair-wrap">
       <div className="repair-context-bar">
         <span style={{ flex: 1 }}>Logging a solution for <span className="repair-context-machine">{machine.name}</span></span>
-        {onViewLogs && <button className="btn btn-ghost btn-sm" onClick={onViewLogs}>View/Edit Repair Log Entries</button>}
+        {onViewLogs && <button className="btn btn-ghost btn-sm" onClick={onViewLogs}>View/Edit Log Entries</button>}
         {multiMachine && <button className="btn btn-ghost btn-sm" onClick={onBack}>Change machine</button>}
       </div>
 
