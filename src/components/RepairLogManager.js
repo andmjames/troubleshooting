@@ -198,7 +198,7 @@ const fmtDate = (iso) => {
   try { return new Date(iso).toLocaleDateString(); } catch { return ''; }
 };
 
-export default function RepairLogManager({ machine, onBack, allMachines = false, analyticsOnly = false, machineFilter, isMaintenance = false }) {
+export default function RepairLogManager({ machine, onBack, allMachines = false, analyticsOnly = false, machineFilter, isMaintenance = false, isAdmin = false }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);     // log id being edited, or null
@@ -232,6 +232,8 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
 
   // The Andrew-J question is only relevant for a repair made by a Maintenance user.
   const techIsMaintenance = (t) => !!t && maintenanceNames.has(t.trim());
+  // Maintenance users and admins can see/record it; regular users cannot.
+  const canSeeAndrew = isMaintenance || isAdmin;
 
   const analytics = useMemo(() => {
     const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
@@ -352,7 +354,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
 
   const saveEdit = async () => {
     if (!problem.trim()) { toast('Problem description is required', 'error'); return; }
-    if (isMaintenance && techIsMaintenance(technician) && !andrewInput) { toast('Select whether this required input from Andrew J', 'error'); return; }
+    if (canSeeAndrew && techIsMaintenance(technician) && !andrewInput) { toast('Select whether this required input from Andrew J', 'error'); return; }
     setSaving(true);
     try {
       const [pPhotos, sPhotos] = await Promise.all([uploadGroup(probPhotos), uploadGroup(solPhotos)]);
@@ -361,7 +363,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
         problem_photos: pPhotos, solution_photos: sPhotos,
       };
       // Only maintenance users can view/change this; otherwise leave it untouched.
-      if (isMaintenance && techIsMaintenance(technician)) payload.required_andrew_input = andrewInput === 'yes';
+      if (canSeeAndrew && techIsMaintenance(technician)) payload.required_andrew_input = andrewInput === 'yes';
       await updateRepairLog(editing, payload);
       toast('Repair log updated', 'success');
       setEditing(null);
@@ -421,7 +423,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
               <label className="field-label">Technician</label>
               <input className="field-input" value={technician} onChange={(e) => setTechnician(e.target.value)} />
             </div>
-            {isMaintenance && techIsMaintenance(technician) && (
+            {canSeeAndrew && techIsMaintenance(technician) && (
               <div className="field-group" style={{ marginTop: 12 }}>
                 <label className="field-label">Did this repair require input from Andrew J? <span className="field-req">*</span></label>
                 <div className="radio-row">
@@ -439,7 +441,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
               <button className="btn btn-ghost" onClick={cancelEdit} disabled={saving}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveEdit} disabled={saving || !problem.trim() || (isMaintenance && techIsMaintenance(technician) && !andrewInput)}>
+              <button className="btn btn-primary" onClick={saveEdit} disabled={saving || !problem.trim() || (canSeeAndrew && techIsMaintenance(technician) && !andrewInput)}>
                 {saving ? <><span className="spinner" /> Saving…</> : 'Save changes'}
               </button>
             </div>
@@ -530,7 +532,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
                       <div className="log-field-text">{log.details}</div>
                     </>}
 
-                    {isMaintenance && techIsMaintenance(log.technician) && <>
+                    {canSeeAndrew && techIsMaintenance(log.technician) && <>
                       <div className="log-field-label">Required input from Andrew J?</div>
                       <div className="log-field-text">
                         {log.required_andrew_input === true ? 'Yes'

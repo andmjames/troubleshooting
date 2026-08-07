@@ -235,7 +235,7 @@ export default function App() {
             {view === 'settings' && <Settings onBack={goHome} />}
 
             {view === 'analytics' && (
-              <RepairLogManager allMachines analyticsOnly machineFilter={currentUser.machine_ids} isMaintenance={!!currentUser.maintenance} onBack={goHome} />
+              <RepairLogManager allMachines analyticsOnly machineFilter={currentUser.machine_ids} isMaintenance={!!currentUser.maintenance} isAdmin={currentUser.role === 'admin'} onBack={goHome} />
             )}
 
             {view === 'edit' && (
@@ -254,14 +254,14 @@ export default function App() {
             )}
 
             {view === 'repairLogs' && logsMachine && (
-              <RepairLogManager machine={logsMachine} isMaintenance={!!currentUser.maintenance} onBack={() => setView('edit')} />
+              <RepairLogManager machine={logsMachine} isMaintenance={!!currentUser.maintenance} isAdmin={currentUser.role === 'admin'} onBack={() => setView('edit')} />
             )}
 
             {view === 'repairLogsAll' && (
               <RepairLogManager
                 allMachines
                 machineFilter={currentUser.machine_ids}
-                isMaintenance={!!currentUser.maintenance}
+                isMaintenance={!!currentUser.maintenance} isAdmin={currentUser.role === 'admin'}
                 onBack={() => setView(machine ? 'repair' : 'picker')}
               />
             )}
