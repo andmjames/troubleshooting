@@ -217,9 +217,9 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
   const [showAnalytics, setShowAnalytics] = useState(analyticsOnly);
   const [maintenanceNames, setMaintenanceNames] = useState(() => new Set());
 
-  // Which technicians count toward the Andrew-J analytics (users flagged Maintenance).
+  // Which technicians are Maintenance-role users. The Andrew-J field only applies
+  // to their repairs, and it feeds the Andrew-J analytics.
   useEffect(() => {
-    if (!allMachines) return;
     let alive = true;
     fetchUsers()
       .then((us) => {
@@ -228,7 +228,10 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
       })
       .catch(() => {});
     return () => { alive = false; };
-  }, [allMachines]);
+  }, []);
+
+  // The Andrew-J question is only relevant for a repair made by a Maintenance user.
+  const techIsMaintenance = (t) => !!t && maintenanceNames.has(t.trim());
 
   const analytics = useMemo(() => {
     const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
@@ -349,7 +352,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
 
   const saveEdit = async () => {
     if (!problem.trim()) { toast('Problem description is required', 'error'); return; }
-    if (isMaintenance && !andrewInput) { toast('Select whether this required input from Andrew J', 'error'); return; }
+    if (isMaintenance && techIsMaintenance(technician) && !andrewInput) { toast('Select whether this required input from Andrew J', 'error'); return; }
     setSaving(true);
     try {
       const [pPhotos, sPhotos] = await Promise.all([uploadGroup(probPhotos), uploadGroup(solPhotos)]);
@@ -358,7 +361,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
         problem_photos: pPhotos, solution_photos: sPhotos,
       };
       // Only maintenance users can view/change this; otherwise leave it untouched.
-      if (isMaintenance) payload.required_andrew_input = andrewInput === 'yes';
+      if (isMaintenance && techIsMaintenance(technician)) payload.required_andrew_input = andrewInput === 'yes';
       await updateRepairLog(editing, payload);
       toast('Repair log updated', 'success');
       setEditing(null);
@@ -418,7 +421,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
               <label className="field-label">Technician</label>
               <input className="field-input" value={technician} onChange={(e) => setTechnician(e.target.value)} />
             </div>
-            {isMaintenance && (
+            {isMaintenance && techIsMaintenance(technician) && (
               <div className="field-group" style={{ marginTop: 12 }}>
                 <label className="field-label">Did this repair require input from Andrew J? <span className="field-req">*</span></label>
                 <div className="radio-row">
@@ -436,7 +439,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
               <button className="btn btn-ghost" onClick={cancelEdit} disabled={saving}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveEdit} disabled={saving || !problem.trim() || (isMaintenance && !andrewInput)}>
+              <button className="btn btn-primary" onClick={saveEdit} disabled={saving || !problem.trim() || (isMaintenance && techIsMaintenance(technician) && !andrewInput)}>
                 {saving ? <><span className="spinner" /> Saving…</> : 'Save changes'}
               </button>
             </div>
@@ -527,7 +530,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
                       <div className="log-field-text">{log.details}</div>
                     </>}
 
-                    {isMaintenance && <>
+                    {isMaintenance && techIsMaintenance(log.technician) && <>
                       <div className="log-field-label">Required input from Andrew J?</div>
                       <div className="log-field-text">
                         {log.required_andrew_input === true ? 'Yes'
