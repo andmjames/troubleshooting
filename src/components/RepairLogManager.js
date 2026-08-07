@@ -245,7 +245,10 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
     // Volume metrics (totals, pie, rankings) count ALL repairs.
     const recentTotal = logs.filter(isRecent).length;
     const byMachine = {};
-    logs.forEach((l) => { const n = l.machine_name || l.machine_id || 'Unknown'; byMachine[n] = (byMachine[n] || 0) + 1; });
+    logs.forEach((l) => {
+      const names = Array.isArray(l.machine_names) && l.machine_names.length ? l.machine_names : [l.machine_name || l.machine_id || 'Unknown'];
+      names.forEach((n) => { byMachine[n] = (byMachine[n] || 0) + 1; });
+    });
     const machineSlices = Object.entries(byMachine)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
@@ -278,7 +281,10 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
 
     // Repairs by machine — last 90 days, ranked (all repairs).
     const recentByMachine = {};
-    logs.filter(isRecent).forEach((l) => { const n = l.machine_name || l.machine_id || 'Unknown'; recentByMachine[n] = (recentByMachine[n] || 0) + 1; });
+    logs.filter(isRecent).forEach((l) => {
+      const names = Array.isArray(l.machine_names) && l.machine_names.length ? l.machine_names : [l.machine_name || l.machine_id || 'Unknown'];
+      names.forEach((n) => { recentByMachine[n] = (recentByMachine[n] || 0) + 1; });
+    });
     const recentRanking = Object.entries(recentByMachine)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
@@ -305,7 +311,10 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
       // Restrict to the user's machines (empty filter = all machines).
       if (allMachines && Array.isArray(machineFilter) && machineFilter.length) {
         const set = new Set(machineFilter.map(Number));
-        data = data.filter((l) => set.has(Number(l.machine_id)));
+        data = data.filter((l) => {
+          const ids = Array.isArray(l.machine_ids) && l.machine_ids.length ? l.machine_ids : [l.machine_id];
+          return ids.some((id) => set.has(Number(id)));
+        });
       }
       setLogs(data);
     } catch (e) {
@@ -484,7 +493,7 @@ export default function RepairLogManager({ machine, onBack, allMachines = false,
                 const sPhotos = log.solution_photos || [];
                 return (
                   <div key={log.id} className="log-entry">
-                    {allMachines && <div className="log-entry-machine">{log.machine_name}</div>}
+                    {allMachines && <div className="log-entry-machine">{Array.isArray(log.machine_names) && log.machine_names.length ? log.machine_names.join(', ') : log.machine_name}</div>}
                     <div className="log-entry-head">
                       <span className="log-entry-date">
                         {fmtDate(log.created_at)}{log.technician ? ` · ${log.technician}` : ''}

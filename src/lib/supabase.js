@@ -102,37 +102,37 @@ export async function saveRepairLog(row) {
   return data;
 }
 
-// Save the same solution to one or more machines. Each machine gets its own row
-// (so per-machine search/display keep working); when there's more than one, the
-// rows share a repair_group_id and each stores the full machine-name list.
+// Save a solution as ONE repair tied to one or more machines. The first machine
+// is the primary (machine_id); when there's more than one, machine_ids holds the
+// full id list and group_machines the names — so it counts as a single repair.
 export async function saveRepairLogMulti({ machines, ...fields }) {
   const list = (machines || []).filter((m) => m && m.id != null);
   if (!list.length) throw new Error('Pick at least one machine');
   const multi = list.length > 1;
-  const groupId = multi
-    ? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2))
-    : null;
-  const groupNames = multi ? list.map((m) => m.name) : null;
-  const rows = list.map((m) => ({
+  const row = {
     ...fields,
-    machine_id: m.id,
-    repair_group_id: groupId,
-    group_machines: groupNames,
-  }));
-  const { data, error } = await supabase.from('et_repair_logs').insert(rows).select();
+    machine_id: Number(list[0].id),
+    machine_ids: multi ? list.map((m) => Number(m.id)) : null,
+    group_machines: multi ? list.map((m) => m.name) : null,
+  };
+  const { data, error } = await supabase.from('et_repair_logs').insert(row).select().single();
   if (error) throw error;
   return data;
 }
 
 // List a machine's repair logs, newest first.
 export async function fetchRepairLogs(machineId) {
+  // Include repairs where this machine is the primary OR one of the tied machines.
   const { data, error } = await supabase
     .from('et_repair_logs')
-    .select('id, machine_id, problem, solution, details, technician, required_andrew_input, problem_photos, solution_photos, created_at')
-    .eq('machine_id', machineId)
+    .select('id, machine_id, machine_ids, problem, solution, details, technician, required_andrew_input, problem_photos, solution_photos, created_at')
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return data || [];
+  const mid = Number(machineId);
+  return (data || []).filter((r) =>
+    Number(r.machine_id) === mid ||
+    (Array.isArray(r.machine_ids) && r.machine_ids.map(Number).includes(mid))
+  );
 }
 
 // All repair logs across every machine, newest first, each tagged with its machine name.
@@ -140,14 +140,21 @@ export async function fetchAllRepairLogs() {
   const [logsRes, machines] = await Promise.all([
     supabase
       .from('et_repair_logs')
-      .select('id, machine_id, problem, solution, details, technician, required_andrew_input, problem_photos, solution_photos, created_at')
+      .select('id, machine_id, machine_ids, problem, solution, details, technician, required_andrew_input, problem_photos, solution_photos, created_at')
       .order('created_at', { ascending: false }),
     fetchMachines(),
   ]);
   if (logsRes.error) throw logsRes.error;
   const nameById = {};
   (machines || []).forEach((m) => { nameById[m.id] = m.name; });
-  return (logsRes.data || []).map((r) => ({ ...r, machine_name: nameById[r.machine_id] || 'Unknown machine' }));
+  return (logsRes.data || []).map((r) => {
+    const ids = Array.isArray(r.machine_ids) && r.machine_ids.length ? r.machine_ids : [r.machine_id];
+    return {
+      ...r,
+      machine_name: nameById[r.machine_id] || 'Unknown machine',
+      machine_names: ids.map((id) => nameById[id] || 'Unknown machine'),
+    };
+  });
 }
 
 // Edit a repair log entry.
