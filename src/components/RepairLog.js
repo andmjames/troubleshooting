@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { IconPlus } from '../lib/icons';
-import { uploadRepairPhoto, saveRepairLog } from '../lib/supabase';
+import { uploadRepairPhoto, saveRepairLogMulti } from '../lib/supabase';
 import { useToast } from './Toast';
 
 function PhotoStrip({ photos, onAdd, onRemove, busy }) {
@@ -30,11 +30,13 @@ function PhotoStrip({ photos, onAdd, onRemove, busy }) {
   );
 }
 
-export default function RepairLog({ machine, onBack, onDone, userName, onViewLogs, multiMachine }) {
+export default function RepairLog({ machine, onBack, onDone, userName, onViewLogs, multiMachine, availableMachines = [] }) {
   const [problem, setProblem] = useState('');
   const [solution, setSolution] = useState('');
   const [details, setDetails] = useState('');
   const [andrewInput, setAndrewInput] = useState(null);      // 'yes' | 'no' — required for Ryan Small only
+  const [machines, setMachines] = useState([machine]);       // machines this solution applies to
+  const [pickingMachine, setPickingMachine] = useState(false);
 
   // Only Ryan Small is asked whether the repair required Andrew J's input.
   const asksAndrew = (userName || '').trim().toLowerCase() === 'ryan small';
@@ -100,6 +102,11 @@ export default function RepairLog({ machine, onBack, onDone, userName, onViewLog
     return out;
   };
 
+  const selectedIds = new Set(machines.map((m) => Number(m.id)));
+  const addableMachines = (availableMachines || []).filter((m) => !selectedIds.has(Number(m.id)));
+  const addMachine = (m) => { setMachines((prev) => [...prev, m]); setPickingMachine(false); };
+  const removeMachine = (id) => setMachines((prev) => (prev.length > 1 ? prev.filter((m) => Number(m.id) !== Number(id)) : prev));
+
   const doSave = async () => {
     setSaving(true);
     try {
@@ -107,8 +114,8 @@ export default function RepairLog({ machine, onBack, onDone, userName, onViewLog
         uploadAll(problemPhotos),
         uploadAll(solutionPhotos),
       ]);
-      await saveRepairLog({
-        machine_id: machine.id,
+      await saveRepairLogMulti({
+        machines,
         problem: problem.trim(),
         solution: solution.trim(),
         details: details.trim() || null,
@@ -118,7 +125,7 @@ export default function RepairLog({ machine, onBack, onDone, userName, onViewLog
         solution_photos: sPhotos,
       });
       setSaved(true);
-      toast('Repair logged', 'success');
+      toast(machines.length > 1 ? `Repair logged for ${machines.length} machines` : 'Repair logged', 'success');
     } catch (e) {
       toast(e.message || 'Could not save the repair', 'error');
     } finally {
@@ -133,7 +140,9 @@ export default function RepairLog({ machine, onBack, onDone, userName, onViewLog
           <div className="repair-success-icon">✓</div>
           <h2 className="picker-title" style={{ textAlign: 'center' }}>Repair logged</h2>
           <p className="picker-sub" style={{ textAlign: 'center' }}>
-            This is now searchable the next time someone troubleshoots the {machine.name}.
+            {machines.length > 1
+              ? `This is now searchable when troubleshooting any of: ${machines.map((m) => m.name).join(', ')}.`
+              : `This is now searchable the next time someone troubleshoots the ${machine.name}.`}
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 8 }}>
             <button className="btn" onClick={onDone}>Log another</button>
@@ -152,6 +161,41 @@ export default function RepairLog({ machine, onBack, onDone, userName, onViewLog
         <span style={{ flex: 1 }}>Logging a solution for <span className="repair-context-machine">{machine.name}</span></span>
         {onViewLogs && <button className="btn btn-ghost btn-sm" onClick={onViewLogs}>View/Edit Log Entries</button>}
         {multiMachine && <button className="btn btn-ghost btn-sm" onClick={onBack}>Change machine</button>}
+      </div>
+
+      <div className="section">
+        <div className="section-header">
+          <span className="section-title"><span className="section-title-dot" /> Machines this solution applies to</span>
+        </div>
+        <div className="section-body">
+          <div className="machine-chips">
+            {machines.map((m) => (
+              <span key={m.id} className="machine-chip">
+                {m.name}
+                {machines.length > 1 && (
+                  <button className="machine-chip-x" onClick={() => removeMachine(m.id)} aria-label={`Remove ${m.name}`}>×</button>
+                )}
+              </span>
+            ))}
+          </div>
+          {addableMachines.length > 0 && (
+            pickingMachine ? (
+              <div className="machine-add-list">
+                {addableMachines.map((m) => (
+                  <button key={m.id} className="machine-add-item" onClick={() => addMachine(m)}>+ {m.name}</button>
+                ))}
+                <button className="text-link" onClick={() => setPickingMachine(false)}>Cancel</button>
+              </div>
+            ) : (
+              <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={() => setPickingMachine(true)}>
+                + Add another machine to this solution
+              </button>
+            )
+          )}
+          {machines.length > 1 && (
+            <p className="perm-subhint">This same solution will be logged for all {machines.length} machines.</p>
+          )}
+        </div>
       </div>
 
       <div className="section">

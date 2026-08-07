@@ -65,6 +65,20 @@ async function runJob(sb, job) {
   const logs = logsRes.data || [];
   const pages = pagesRes.data || [];
 
+  // For any repair that was logged against multiple machines, pull the full
+  // machine list so the answer can note every machine the fix applies to.
+  const groupMachinesById = {};
+  const logIds = logs.map((l) => l.id).filter((x) => x != null);
+  if (logIds.length) {
+    const { data: gm } = await sb
+      .from('et_repair_logs').select('id, group_machines').in('id', logIds);
+    (gm || []).forEach((r) => {
+      if (Array.isArray(r.group_machines) && r.group_machines.length > 1) {
+        groupMachinesById[r.id] = r.group_machines;
+      }
+    });
+  }
+
   // 2. Build the context block
   let context = '';
   if (logs.length) {
@@ -75,6 +89,8 @@ async function runJob(sb, job) {
       context += `Problem: ${l.problem}\n`;
       if (l.solution) context += `Fix: ${l.solution}\n`;
       if (l.details) context += `Details: ${l.details}\n`;
+      const gm = groupMachinesById[l.id];
+      if (gm) context += `This fix was applied to multiple machines: ${gm.join(', ')}\n`;
     });
     context += '\n';
   } else {

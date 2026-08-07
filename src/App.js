@@ -224,6 +224,7 @@ export default function App() {
                 userName={currentUser.name}
                 onViewLogs={() => setView('repairLogsAll')}
                 multiMachine={machinesLoaded && allowedMachines.length > 1}
+                availableMachines={allowedMachines}
               />
             )}
 

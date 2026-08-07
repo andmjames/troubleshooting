@@ -972,3 +972,22 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   padding: 8px 0 6px; border-bottom: .5px solid var(--border);
   position: sticky; top: 0; background: var(--bg);
 }
+
+/* Multi-machine solution: chips + add list */
+.machine-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.machine-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg2); border: .5px solid var(--border); border-radius: 999px;
+  padding: 5px 12px; font-size: 13px; font-weight: 600; color: var(--text);
+}
+.machine-chip-x {
+  border: none; background: none; cursor: pointer; color: var(--text3);
+  font-size: 16px; line-height: 1; padding: 0; margin: 0;
+}
+.machine-chip-x:hover { color: var(--text); }
+.machine-add-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+.machine-add-item {
+  background: var(--bg); border: .5px solid var(--border); border-radius: 8px;
+  padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--text); font-family: inherit;
+}
+.machine-add-item:hover { border-color: var(--text); }

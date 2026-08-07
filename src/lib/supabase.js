@@ -102,6 +102,28 @@ export async function saveRepairLog(row) {
   return data;
 }
 
+// Save the same solution to one or more machines. Each machine gets its own row
+// (so per-machine search/display keep working); when there's more than one, the
+// rows share a repair_group_id and each stores the full machine-name list.
+export async function saveRepairLogMulti({ machines, ...fields }) {
+  const list = (machines || []).filter((m) => m && m.id != null);
+  if (!list.length) throw new Error('Pick at least one machine');
+  const multi = list.length > 1;
+  const groupId = multi
+    ? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2))
+    : null;
+  const groupNames = multi ? list.map((m) => m.name) : null;
+  const rows = list.map((m) => ({
+    ...fields,
+    machine_id: m.id,
+    repair_group_id: groupId,
+    group_machines: groupNames,
+  }));
+  const { data, error } = await supabase.from('et_repair_logs').insert(rows).select();
+  if (error) throw error;
+  return data;
+}
+
 // List a machine's repair logs, newest first.
 export async function fetchRepairLogs(machineId) {
   const { data, error } = await supabase
