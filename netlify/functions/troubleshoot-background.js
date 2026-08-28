@@ -19,7 +19,7 @@ const { admin, callClaude, textOf, sign } = require('./_shared');
 const SYSTEM = `You are a maintenance troubleshooting assistant for PMI Tape, a tape manufacturing plant. You help technicians fix factory equipment.
 
 RULES — follow exactly:
-- ALWAYS prioritize the PAST REPAIR LOGS provided. If a past repair matches the problem, lead with it: say what was wrong before and how it was fixed, and reference it with its full date exactly as shown (e.g. "Past repair from 6/17/2026: …"). If NO past repair genuinely matches, say so plainly and do not reference a repair date.
+- ALWAYS prioritize the PAST REPAIR LOGS provided. If a past repair matches the problem, lead with it: say what was wrong before and how it was fixed, and reference it with its full date AND its [LOG N] tag exactly as shown (e.g. "Past repair from 6/17/2026 [LOG 2]: …"). The [LOG N] tag is REQUIRED and is how the system attaches that specific repair's photos — include it only for the exact log(s) you are actually using, never for logs you are not using. If NO past repair genuinely matches, say so plainly and do not reference a repair date or a [LOG N] tag.
 - After the logs, use the MANUAL EXCERPTS, then general/web knowledge.
 - When you search the web, include the machine's MANUFACTURER and MODEL NUMBER in your query (e.g. "<manufacturer> <model> <problem>"), so results are specific to this exact equipment rather than a generic machine name.
 - Keep it SHORT. A few bullet points only. Do not overwhelm the technician.
@@ -180,11 +180,31 @@ async function runJob(sb, job) {
     citedDates.add(`${parseInt(dmatch[1], 10)}/${parseInt(dmatch[2], 10)}/${y}`);
   }
 
+  // Preferred: the answer tags the exact repair it used with [LOG N] — this
+  // disambiguates repairs that share a date.
+  const citedLogIdx = new Set();
+  const logTagRe = /\[LOG\s*(\d+)\]/gi;
+  let lmatch;
+  while ((lmatch = logTagRe.exec(answer)) !== null) citedLogIdx.add(parseInt(lmatch[1], 10));
+
   const sources = [];
   const images = [];
 
-  // Repair logs: only the ones the answer cited (by date).
-  const citedLogs = logs.filter((l) => l.created_at && citedDates.has(fmtMDY(l.created_at)));
+  // Only the repair(s) the answer actually referenced. Use the [LOG N] tags when
+  // present; otherwise fall back to cited dates, but at most one (best-ranked)
+  // repair per date so same-day repairs aren't merged.
+  let citedLogs;
+  if (citedLogIdx.size) {
+    citedLogs = [...citedLogIdx].map((n) => logs[n - 1]).filter(Boolean);
+  } else {
+    const seenDates = new Set();
+    citedLogs = [];
+    for (const l of logs) {   // logs are ordered best-match first
+      if (!l.created_at) continue;
+      const d = fmtMDY(l.created_at);
+      if (citedDates.has(d) && !seenDates.has(d)) { seenDates.add(d); citedLogs.push(l); }
+    }
+  }
   for (const l of citedLogs.slice(0, 3)) {
     sources.push({ type: 'log', label: `Repair log · ${fmtMDY(l.created_at)}` });
     const photos = [...(l.problem_photos || []), ...(l.solution_photos || [])];
@@ -220,7 +240,10 @@ async function runJob(sb, job) {
     seen.add(k); return true;
   }).slice(0, 6);
 
-  return { answer, sources, images: uniqueImages };
+  // The [LOG N] tags are just for photo matching — remove them from what the tech sees.
+  const displayAnswer = answer.replace(/\s*\[LOG\s*\d+\]/gi, '');
+
+  return { answer: displayAnswer, sources, images: uniqueImages };
 }
 
 exports.handler = async (event) => {
