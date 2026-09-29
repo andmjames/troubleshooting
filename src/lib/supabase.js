@@ -537,25 +537,28 @@ export async function pollManual(manualId, onUpdate, { intervalMs = 2000 } = {})
 export async function fetchTodos() {
   const { data, error } = await supabase
     .from('et_todos')
-    .select('id, text, description, photos, done, created_by, created_at, completed_at')
-    .order('done', { ascending: true })
+    .select('id, text, description, photos, done, position, created_by, created_at, completed_at')
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
 }
-export async function addTodo({ title, description, photos, createdBy }) {
-  const { data, error } = await supabase
-    .from('et_todos')
-    .insert({
-      text: (title || '').trim(),
-      description: (description || '').trim() || null,
-      photos: photos || [],
-      created_by: createdBy || null,
-    })
-    .select()
-    .single();
+export async function addTodo({ title, description, photos, createdBy, position }) {
+  const payload = {
+    text: (title || '').trim(),
+    description: (description || '').trim() || null,
+    photos: photos || [],
+    created_by: createdBy || null,
+  };
+  if (position != null) payload.position = position;
+  const { data, error } = await supabase.from('et_todos').insert(payload).select().single();
   if (error) throw error;
   return data;
+}
+// Persist a new open-task order by numbering positions 0..n.
+export async function reorderTodos(ids) {
+  await Promise.all(
+    (ids || []).map((id, i) => supabase.from('et_todos').update({ position: i }).eq('id', id))
+  );
 }
 export async function setTodoDone(id, done) {
   const { data, error } = await supabase

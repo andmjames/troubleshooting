@@ -995,38 +995,35 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 /* To Do list */
 .todo-add { display: flex; flex-direction: column; gap: 10px; }
 .todo-desc-input { resize: vertical; min-height: 64px; font-family: inherit; }
+.todo-hint { font-size: 12px; color: var(--text3); }
 .todo-row {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 10px 0; border-bottom: .5px solid var(--border);
+  display: flex; align-items: stretch; gap: 6px;
+  border-bottom: .5px solid var(--border);
 }
 .todo-row:last-child { border-bottom: none; }
-.todo-check {
-  flex: 0 0 auto; width: 22px; height: 22px; margin-top: 1px;
-  border: 1.5px solid var(--border2); border-radius: 6px; background: var(--bg);
-  cursor: pointer; color: #1e7a3d; font-size: 14px; font-weight: 700; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
+.todo-dragging { background: var(--bg2); border-radius: 8px; box-shadow: var(--shadow-sm); }
+.todo-grip {
+  flex: 0 0 auto; align-self: center; border: none; background: none; cursor: grab;
+  color: var(--text3); font-size: 14px; line-height: 1; letter-spacing: -3px;
+  padding: 6px 4px; touch-action: none; user-select: none;
 }
-.todo-check:hover { border-color: var(--text); }
-.todo-main { flex: 1; min-width: 0; }
+.todo-grip:active { cursor: grabbing; }
+.todo-open {
+  flex: 1; min-width: 0; text-align: left; border: none; background: none;
+  cursor: pointer; padding: 12px 2px; font-family: inherit;
+}
 .todo-text { font-size: 15px; color: var(--text); word-break: break-word; }
 .todo-done .todo-text { text-decoration: line-through; color: var(--text3); }
 .todo-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--text3); margin-top: 4px; }
-.todo-chip {
-  font-size: 11px; font-weight: 700; color: #1a56db; background: #e8f0fe;
-  border-radius: 999px; padding: 1px 8px;
-}
-.todo-del {
-  flex: 0 0 auto; border: none; background: none; cursor: pointer;
-  color: var(--text3); font-size: 20px; line-height: 1; padding: 0 4px;
-}
-.todo-del:hover { color: #c0392b; }
-
-/* To Do list — extras */
-.todo-desc { font-size: 13px; color: var(--text2); margin-top: 3px; white-space: pre-wrap; word-break: break-word; }
-.todo-photos { margin-top: 8px; }
+.todo-age-green  { color: #1e7a3d; font-weight: 600; }
+.todo-age-orange { color: #c67605; font-weight: 600; }
+.todo-age-red    { color: #c0392b; font-weight: 700; }
+.todo-detail-title { font-size: 18px; font-weight: 700; color: var(--text); margin: 0; word-break: break-word; }
+.todo-detail-desc { font-size: 15px; color: var(--text2); margin: 12px 0 0; white-space: pre-wrap; word-break: break-word; }
 .photo-tile-loading { background: var(--bg2); }
 
 /* On mobile, float the To Do List tile to the top of the screen */
 @media (max-width: 860px) {
   .home-card-todo { order: -1; }
 }
+
