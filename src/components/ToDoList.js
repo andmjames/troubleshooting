@@ -82,6 +82,7 @@ export default function ToDoList({ onBack, userName }) {
   const addPhotos = (files) =>
     setPhotos((prev) => [...prev, ...files.map((f) => ({ file: f, preview: URL.createObjectURL(f) }))]);
   const removePhoto = (idx) => setPhotos((prev) => prev.filter((_, i) => i !== idx));
+  const cancelAdd = () => { setTitle(''); setDescription(''); setPhotos([]); };
 
   const add = async () => {
     if (!title.trim()) { toast('Give the task a title', 'error'); return; }
@@ -216,7 +217,8 @@ export default function ToDoList({ onBack, userName }) {
                 </div>
                 <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
                   onChange={(e) => { addPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <button className="btn" onClick={cancelAdd} disabled={adding}>Cancel</button>
                   <button className="btn btn-primary" onClick={add} disabled={adding || !title.trim()}>
                     {adding ? 'Adding…' : 'Add task'}
                   </button>
