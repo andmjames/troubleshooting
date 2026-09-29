@@ -34,7 +34,8 @@ function Lightbox({ src, onClose }) {
   if (!src) return null;
   return (
     <div className="lightbox" onClick={onClose}>
-      <img src={src} alt="" onClick={(e) => e.stopPropagation()} />
+      <button className="lightbox-close" onClick={onClose} aria-label="Close">×</button>
+      <img className="lightbox-img" src={src} alt="" onClick={(e) => e.stopPropagation()} />
     </div>
   );
 }
