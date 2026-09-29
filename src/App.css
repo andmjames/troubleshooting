@@ -991,3 +991,33 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--text); font-family: inherit;
 }
 .machine-add-item:hover { border-color: var(--text); }
+
+/* To Do list */
+.todo-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.todo-add .field-input { flex: 1 1 180px; min-width: 0; }
+.todo-assign { flex: 0 0 auto; width: auto; min-width: 130px; }
+.todo-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 0; border-bottom: .5px solid var(--border);
+}
+.todo-row:last-child { border-bottom: none; }
+.todo-check {
+  flex: 0 0 auto; width: 22px; height: 22px; margin-top: 1px;
+  border: 1.5px solid var(--border2); border-radius: 6px; background: var(--bg);
+  cursor: pointer; color: #1e7a3d; font-size: 14px; font-weight: 700; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.todo-check:hover { border-color: var(--text); }
+.todo-main { flex: 1; min-width: 0; }
+.todo-text { font-size: 15px; color: var(--text); word-break: break-word; }
+.todo-done .todo-text { text-decoration: line-through; color: var(--text3); }
+.todo-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--text3); margin-top: 4px; }
+.todo-chip {
+  font-size: 11px; font-weight: 700; color: #1a56db; background: #e8f0fe;
+  border-radius: 999px; padding: 1px 8px;
+}
+.todo-del {
+  flex: 0 0 auto; border: none; background: none; cursor: pointer;
+  color: var(--text3); font-size: 20px; line-height: 1; padding: 0 4px;
+}
+.todo-del:hover { color: #c0392b; }

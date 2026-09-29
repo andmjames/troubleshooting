@@ -63,3 +63,12 @@ export const IconChart = (p) => (
     <rect x="17.5" y="5" width="3" height="13" />
   </svg>
 );
+
+export const IconChecklist = (p) => (
+  <svg {...s} {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 6h11M9 12h11M9 18h11" />
+    <path d="M4 6l1 1 2-2" />
+    <path d="M4 12l1 1 2-2" />
+    <path d="M4 18l1 1 2-2" />
+  </svg>
+);

@@ -6,6 +6,7 @@ import RepairLog from './components/RepairLog';
 import UploadManual from './components/UploadManual';
 import EditMachines from './components/EditMachines';
 import Settings from './components/Settings';
+import ToDoList from './components/ToDoList';
 import PreventativeMaintenance from './components/PreventativeMaintenance';
 import PMEditor from './components/PMEditor';
 import RepairLogManager from './components/RepairLogManager';
@@ -96,6 +97,7 @@ export default function App() {
   const choose = (m) => {
     if (m === 'edit') { setView('edit'); return; }
     if (m === 'settings') { setView('settings'); return; }
+    if (m === 'todo') { setView('todo'); return; }
     if (m === 'analytics') { setView('analytics'); return; }
     if (m === 'pm') { setInitialPmTask(null); setView('pm'); return; }
     setMode(m);
@@ -149,6 +151,7 @@ export default function App() {
     : view === 'home' ? 'Troubleshooting'
     : view === 'edit' ? 'Edit Machines'
     : view === 'settings' ? 'Settings'
+    : view === 'todo' ? 'To Do List'
     : view === 'analytics' ? 'Analytics'
     : view === 'pm' ? 'Preventative Maintenance'
     : view === 'pmEdit' ? 'Preventative Maintenance'
@@ -197,6 +200,7 @@ export default function App() {
                 can={can}
                 userName={currentUser.name}
                 soloMachine={machinesLoaded && allowedMachines.length === 1 ? allowedMachines[0].name : null}
+                showTodo={currentUser.role === 'admin' || !!currentUser.maintenance}
               />
             )}
 
@@ -233,6 +237,8 @@ export default function App() {
             )}
 
             {view === 'settings' && <Settings onBack={goHome} />}
+
+            {view === 'todo' && <ToDoList onBack={goHome} userName={currentUser.name} />}
 
             {view === 'analytics' && (
               <RepairLogManager allMachines analyticsOnly machineFilter={currentUser.machine_ids} isMaintenance={!!currentUser.maintenance} isAdmin={currentUser.role === 'admin'} onBack={goHome} />

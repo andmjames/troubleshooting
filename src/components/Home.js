@@ -1,9 +1,10 @@
 import React from 'react';
-import { IconChat, IconWrench, IconCalendar, IconChart } from '../lib/icons';
+import { IconChat, IconWrench, IconCalendar, IconChart, IconChecklist } from '../lib/icons';
 
-export default function Home({ onChoose, can = () => true, userName, soloMachine }) {
-  // Troubleshooting + Log a solution are always shown; PM and Analytics are gated.
-  const tileCount = 2 + (can('preventative_maintenance') ? 1 : 0) + (can('analytics') ? 1 : 0);
+export default function Home({ onChoose, can = () => true, userName, soloMachine, showTodo = false }) {
+  // Troubleshooting + Log a solution are always shown; PM and Analytics are gated;
+  // the To Do list shows for admins and maintenance users.
+  const tileCount = 2 + (can('preventative_maintenance') ? 1 : 0) + (can('analytics') ? 1 : 0) + (showTodo ? 1 : 0);
   return (
     <div className="home-wrap">
       <div className="home-eyebrow">PMI Tape · {userName || 'Troubleshooting'}</div>
@@ -46,6 +47,17 @@ export default function Home({ onChoose, can = () => true, userName, soloMachine
             <span className="home-card-desc">
               Repair trends, how often Andrew J's input was needed, and repairs by
               machine.
+            </span>
+          </button>
+        )}
+
+        {showTodo && (
+          <button className="home-card" onClick={() => onChoose('todo')}>
+            <span className="home-card-icon"><IconChecklist /></span>
+            <span className="home-card-title">To Do List</span>
+            <span className="home-card-desc">
+              Shared task list for the maintenance team — add tasks, assign them,
+              and check them off.
             </span>
           </button>
         )}

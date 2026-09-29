@@ -532,3 +532,45 @@ export async function pollManual(manualId, onUpdate, { intervalMs = 2000 } = {})
     await wait(intervalMs);
   }
 }
+
+// ── To Do list (shared list for admin + maintenance users) ──
+export async function fetchTodos() {
+  const { data, error } = await supabase
+    .from('et_todos')
+    .select('id, text, done, assigned_to, created_by, created_at, completed_at')
+    .order('done', { ascending: true })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+export async function addTodo({ text, assignedTo, createdBy }) {
+  const { data, error } = await supabase
+    .from('et_todos')
+    .insert({ text: (text || '').trim(), assigned_to: assignedTo || null, created_by: createdBy || null })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+export async function setTodoDone(id, done) {
+  const { data, error } = await supabase
+    .from('et_todos')
+    .update({ done, completed_at: done ? new Date().toISOString() : null })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+export async function updateTodo(id, fields) {
+  const payload = {};
+  if ('text' in fields) payload.text = (fields.text || '').trim();
+  if ('assignedTo' in fields) payload.assigned_to = fields.assignedTo || null;
+  const { data, error } = await supabase.from('et_todos').update(payload).eq('id', id).select().single();
+  if (error) throw error;
+  return data;
+}
+export async function deleteTodo(id) {
+  const { error } = await supabase.from('et_todos').delete().eq('id', id);
+  if (error) throw error;
+}
