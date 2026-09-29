@@ -85,7 +85,7 @@ export default function ToDoList({ onBack, userName }) {
   const cancelAdd = () => { setTitle(''); setDescription(''); setPhotos([]); };
 
   const add = async () => {
-    if (!title.trim()) { toast('Give the task a title', 'error'); return; }
+    if (!title.trim()) { toast('Give the work order a title', 'error'); return; }
     setAdding(true);
     try {
       const uploaded = [];
@@ -98,20 +98,20 @@ export default function ToDoList({ onBack, userName }) {
       setTitle(''); setDescription(''); setPhotos([]);
       await load();
     } catch (e) {
-      toast(e.message || 'Could not add the task', 'error');
+      toast(e.message || 'Could not add the work order', 'error');
     } finally { setAdding(false); }
   };
 
   const markComplete = async (t, done) => {
     setBusy(true);
     try { await setTodoDone(t.id, done); await load(); setSelected(null); }
-    catch (e) { toast(e.message || 'Could not update the task', 'error'); }
+    catch (e) { toast(e.message || 'Could not update the work order', 'error'); }
     finally { setBusy(false); }
   };
   const remove = async (t) => {
     setBusy(true);
     try { await deleteTodo(t.id); await load(); setSelected(null); }
-    catch (e) { toast(e.message || 'Could not delete the task', 'error'); }
+    catch (e) { toast(e.message || 'Could not delete the work order', 'error'); }
     finally { setBusy(false); }
   };
 
@@ -153,7 +153,7 @@ export default function ToDoList({ onBack, userName }) {
     const d = ageDays(selected.created_at);
     return (
       <div className="repair-wrap">
-        <button className="back-link" onClick={() => setSelected(null)} style={{ marginBottom: 12 }}>← To Do List</button>
+        <button className="back-link" onClick={() => setSelected(null)} style={{ marginBottom: 12 }}>← Work Orders</button>
         <div className="section">
           <div className="section-body">
             <h2 className="todo-detail-title">{selected.text}</h2>
@@ -172,7 +172,7 @@ export default function ToDoList({ onBack, userName }) {
             )}
           </div>
           <div className="modal-footer" style={{ borderTop: '.5px solid var(--border)' }}>
-            <button className="btn btn-danger" onClick={() => remove(selected)} disabled={busy}>Delete Task</button>
+            <button className="btn btn-danger" onClick={() => remove(selected)} disabled={busy}>Delete Work Order</button>
             {selected.done
               ? <button className="btn" onClick={() => markComplete(selected, false)} disabled={busy}>Reopen</button>
               : <button className="btn btn-primary" onClick={() => markComplete(selected, true)} disabled={busy}>Mark as Complete</button>}
@@ -190,11 +190,11 @@ export default function ToDoList({ onBack, userName }) {
 
       <div className="section">
         <div className="section-header">
-          <span className="section-title"><span className="section-title-dot" /> Add a task</span>
+          <span className="section-title"><span className="section-title-dot" /> Add a Work Order</span>
         </div>
         <div className="section-body">
           <div className="todo-add">
-            <input className="field-input" placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input className="field-input" placeholder="Work order title" value={title} onChange={(e) => setTitle(e.target.value)} />
             {title.trim() && (
               <>
                 <textarea
@@ -220,7 +220,7 @@ export default function ToDoList({ onBack, userName }) {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                   <button className="btn" onClick={cancelAdd} disabled={adding}>Cancel</button>
                   <button className="btn btn-primary" onClick={add} disabled={adding || !title.trim()}>
-                    {adding ? 'Adding…' : 'Add task'}
+                    {adding ? 'Adding…' : 'Add Work Order'}
                   </button>
                 </div>
               </>
@@ -274,7 +274,7 @@ export default function ToDoList({ onBack, userName }) {
               <span className="section-title"><span className="section-title-dot" /> Completed ({doneList.length})</span>
             </div>
             <div className="section-body">
-              {doneList.length === 0 ? <div className="picker-empty">No completed tasks yet.</div> : doneList.map((t) => (
+              {doneList.length === 0 ? <div className="picker-empty">No completed work orders yet.</div> : doneList.map((t) => (
                 <div key={t.id} className="todo-row todo-done">
                   <button className="todo-open" onClick={() => setSelected(t)}>
                     <div className="todo-text">{t.text}</div>

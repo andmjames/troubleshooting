@@ -43,9 +43,9 @@ export default function Home({ onChoose, can = () => true, userName, soloMachine
         {showTodo && (
           <button className="home-card home-card-todo" onClick={() => onChoose('todo')}>
             <span className="home-card-icon"><IconChecklist /></span>
-            <span className="home-card-title">To Do List</span>
+            <span className="home-card-title">Work Orders</span>
             <span className="home-card-desc">
-              Shared task list for the maintenance team — add tasks with photos and
+              Shared work orders for the maintenance team — add them with photos and
               check them off.
             </span>
           </button>

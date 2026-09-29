@@ -151,7 +151,7 @@ export default function App() {
     : view === 'home' ? 'Troubleshooting'
     : view === 'edit' ? 'Edit Machines'
     : view === 'settings' ? 'Settings'
-    : view === 'todo' ? 'To Do List'
+    : view === 'todo' ? 'Work Orders'
     : view === 'analytics' ? 'Analytics'
     : view === 'pm' ? 'Preventative Maintenance'
     : view === 'pmEdit' ? 'Preventative Maintenance'
