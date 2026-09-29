@@ -193,31 +193,35 @@ export default function ToDoList({ onBack, userName }) {
         <div className="section-body">
           <div className="todo-add">
             <input className="field-input" placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <textarea
-              className="field-input todo-desc-input"
-              placeholder="Description (details, steps, anything useful)…"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-            <div className="photo-strip">
-              {photos.map((p, i) => (
-                <div key={i} className="photo-tile">
-                  <img src={p.preview} alt="" />
-                  <button type="button" className="photo-remove" onClick={() => removePhoto(i)} aria-label="Remove photo">×</button>
+            {title.trim() && (
+              <>
+                <textarea
+                  className="field-input todo-desc-input"
+                  placeholder="Description (details, steps, anything useful)…"
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+                <div className="photo-strip">
+                  {photos.map((p, i) => (
+                    <div key={i} className="photo-tile">
+                      <img src={p.preview} alt="" />
+                      <button type="button" className="photo-remove" onClick={() => removePhoto(i)} aria-label="Remove photo">×</button>
+                    </div>
+                  ))}
+                  <button type="button" className="photo-add" onClick={() => fileRef.current?.click()} disabled={adding}>
+                    <IconPlus /> Add photo
+                  </button>
                 </div>
-              ))}
-              <button type="button" className="photo-add" onClick={() => fileRef.current?.click()} disabled={adding}>
-                <IconPlus /> Add photo
-              </button>
-            </div>
-            <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
-              onChange={(e) => { addPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="btn btn-primary" onClick={add} disabled={adding || !title.trim()}>
-                {adding ? 'Adding…' : 'Add task'}
-              </button>
-            </div>
+                <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+                  onChange={(e) => { addPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button className="btn btn-primary" onClick={add} disabled={adding || !title.trim()}>
+                    {adding ? 'Adding…' : 'Add task'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
