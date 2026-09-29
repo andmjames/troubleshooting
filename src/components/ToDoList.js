@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { fetchTodos, addTodo, setTodoDone, deleteTodo, fetchUsers } from '../lib/supabase';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { fetchTodos, addTodo, setTodoDone, deleteTodo, uploadRepairPhoto, signedUrl } from '../lib/supabase';
+import { IconPlus } from '../lib/icons';
 import { useToast } from './Toast';
 
 const fmtWhen = (iso) => {
@@ -8,14 +9,41 @@ const fmtWhen = (iso) => {
   catch { return ''; }
 };
 
+// Thumbnail for a stored task photo (signs the URL on demand).
+function TaskThumb({ path, onOpen }) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    signedUrl('repair-photos', path).then((u) => { if (alive) setUrl(u); });
+    return () => { alive = false; };
+  }, [path]);
+  if (!url) return <div className="photo-tile photo-tile-loading" />;
+  return (
+    <button type="button" className="photo-tile" onClick={() => onOpen(url)} aria-label="View photo">
+      <img src={url} alt="" />
+    </button>
+  );
+}
+
+function Lightbox({ src, onClose }) {
+  if (!src) return null;
+  return (
+    <div className="lightbox" onClick={onClose}>
+      <img src={src} alt="" onClick={(e) => e.stopPropagation()} />
+    </div>
+  );
+}
+
 export default function ToDoList({ onBack, userName }) {
   const [todos, setTodos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [assignees, setAssignees] = useState([]);   // admin + maintenance user names
-  const [text, setText] = useState('');
-  const [assignedTo, setAssignedTo] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [photos, setPhotos] = useState([]);        // {file, preview}
   const [adding, setAdding] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [lightbox, setLightbox] = useState(null);
+  const fileRef = useRef(null);
   const toast = useToast();
 
   const load = useCallback(async () => {
@@ -26,18 +54,22 @@ export default function ToDoList({ onBack, userName }) {
   }, [toast]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    fetchUsers()
-      .then((us) => setAssignees(us.filter((u) => u.role === 'admin' || u.maintenance).map((u) => u.name)))
-      .catch(() => {});
-  }, []);
+
+  const addPhotos = (files) =>
+    setPhotos((prev) => [...prev, ...files.map((f) => ({ file: f, preview: URL.createObjectURL(f) }))]);
+  const removePhoto = (idx) => setPhotos((prev) => prev.filter((_, i) => i !== idx));
 
   const add = async () => {
-    if (!text.trim()) { toast('Enter a task', 'error'); return; }
+    if (!title.trim()) { toast('Give the task a title', 'error'); return; }
     setAdding(true);
     try {
-      await addTodo({ text, assignedTo: assignedTo || null, createdBy: userName || null });
-      setText(''); setAssignedTo('');
+      const uploaded = [];
+      for (const p of photos) {
+        const path = await uploadRepairPhoto(p.file);
+        uploaded.push({ path, caption: '' });
+      }
+      await addTodo({ title, description, photos: uploaded, createdBy: userName || null });
+      setTitle(''); setDescription(''); setPhotos([]);
       await load();
     } catch (e) {
       toast(e.message || 'Could not add the task', 'error');
@@ -68,8 +100,13 @@ export default function ToDoList({ onBack, userName }) {
       </button>
       <div className="todo-main">
         <div className="todo-text">{t.text}</div>
+        {t.description && <div className="todo-desc">{t.description}</div>}
+        {Array.isArray(t.photos) && t.photos.length > 0 && (
+          <div className="photo-strip todo-photos">
+            {t.photos.map((p, i) => <TaskThumb key={i} path={p.path} onOpen={setLightbox} />)}
+          </div>
+        )}
         <div className="todo-meta">
-          {t.assigned_to && <span className="todo-chip">{t.assigned_to}</span>}
           {t.created_by && <span>added by {t.created_by}</span>}
           {t.created_at && <span>· {fmtWhen(t.created_at)}</span>}
         </div>
@@ -84,24 +121,47 @@ export default function ToDoList({ onBack, userName }) {
 
       <div className="section">
         <div className="section-header">
-          <span className="section-title"><span className="section-title-dot" /> To Do List</span>
+          <span className="section-title"><span className="section-title-dot" /> Add a task</span>
         </div>
         <div className="section-body">
           <div className="todo-add">
             <input
               className="field-input"
-              placeholder="Add a task…"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
+              placeholder="Task title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
             />
-            <select className="field-input todo-assign" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
-              <option value="">Unassigned</option>
-              {assignees.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <button className="btn btn-primary" onClick={add} disabled={adding || !text.trim()}>
-              {adding ? 'Adding…' : 'Add'}
-            </button>
+            <textarea
+              className="field-input todo-desc-input"
+              placeholder="Description (details, steps, anything useful)…"
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            <div className="photo-strip">
+              {photos.map((p, i) => (
+                <div key={i} className="photo-tile">
+                  <img src={p.preview} alt="" />
+                  <button type="button" className="photo-remove" onClick={() => removePhoto(i)} aria-label="Remove photo">×</button>
+                </div>
+              ))}
+              <button type="button" className="photo-add" onClick={() => fileRef.current?.click()} disabled={adding}>
+                <IconPlus /> Add photo
+              </button>
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => { addPhotos(Array.from(e.target.files || [])); e.target.value = ''; }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-primary" onClick={add} disabled={adding || !title.trim()}>
+                {adding ? 'Adding…' : 'Add task'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -129,6 +189,8 @@ export default function ToDoList({ onBack, userName }) {
           )}
         </>
       )}
+
+      <Lightbox src={lightbox} onClose={() => setLightbox(null)} />
     </div>
   );
 }

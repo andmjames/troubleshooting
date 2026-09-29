@@ -537,16 +537,21 @@ export async function pollManual(manualId, onUpdate, { intervalMs = 2000 } = {})
 export async function fetchTodos() {
   const { data, error } = await supabase
     .from('et_todos')
-    .select('id, text, done, assigned_to, created_by, created_at, completed_at')
+    .select('id, text, description, photos, done, created_by, created_at, completed_at')
     .order('done', { ascending: true })
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
 }
-export async function addTodo({ text, assignedTo, createdBy }) {
+export async function addTodo({ title, description, photos, createdBy }) {
   const { data, error } = await supabase
     .from('et_todos')
-    .insert({ text: (text || '').trim(), assigned_to: assignedTo || null, created_by: createdBy || null })
+    .insert({
+      text: (title || '').trim(),
+      description: (description || '').trim() || null,
+      photos: photos || [],
+      created_by: createdBy || null,
+    })
     .select()
     .single();
   if (error) throw error;

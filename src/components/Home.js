@@ -1,10 +1,10 @@
 import React from 'react';
-import { IconChat, IconWrench, IconCalendar, IconChart, IconChecklist } from '../lib/icons';
+import { IconChat, IconWrench, IconCalendar, IconChecklist } from '../lib/icons';
 
 export default function Home({ onChoose, can = () => true, userName, soloMachine, showTodo = false }) {
-  // Troubleshooting + Log a solution are always shown; PM and Analytics are gated;
-  // the To Do list shows for admins and maintenance users.
-  const tileCount = 2 + (can('preventative_maintenance') ? 1 : 0) + (can('analytics') ? 1 : 0) + (showTodo ? 1 : 0);
+  // Troubleshooting + Log a solution are always shown; PM is gated; the To Do list
+  // shows for admins and maintenance users. (Analytics is a footer link, not a tile.)
+  const tileCount = 2 + (can('preventative_maintenance') ? 1 : 0) + (showTodo ? 1 : 0);
   return (
     <div className="home-wrap">
       <div className="home-eyebrow">PMI Tape · {userName || 'Troubleshooting'}</div>
@@ -40,30 +40,24 @@ export default function Home({ onChoose, can = () => true, userName, soloMachine
           </button>
         )}
 
-        {can('analytics') && (
-          <button className="home-card" onClick={() => onChoose('analytics')}>
-            <span className="home-card-icon"><IconChart /></span>
-            <span className="home-card-title">Analytics</span>
-            <span className="home-card-desc">
-              Repair trends, how often Andrew J's input was needed, and repairs by
-              machine.
-            </span>
-          </button>
-        )}
-
         {showTodo && (
-          <button className="home-card" onClick={() => onChoose('todo')}>
+          <button className="home-card home-card-todo" onClick={() => onChoose('todo')}>
             <span className="home-card-icon"><IconChecklist /></span>
             <span className="home-card-title">To Do List</span>
             <span className="home-card-desc">
-              Shared task list for the maintenance team — add tasks, assign them,
-              and check them off.
+              Shared task list for the maintenance team — add tasks with photos and
+              check them off.
             </span>
           </button>
         )}
       </div>
 
       <div className="home-footer-link">
+        {can('analytics') && (
+          <button className="text-link" onClick={() => onChoose('analytics')}>
+            Analytics
+          </button>
+        )}
         {can('edit_machines') && (
           <button className="text-link" onClick={() => onChoose('edit')}>
             Edit machines
