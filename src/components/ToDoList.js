@@ -261,7 +261,6 @@ export default function ToDoList({ onBack, userName }) {
                         {t.created_by && <span>added by {t.created_by}</span>}
                         {t.created_at && <span>· {fmtWhen(t.created_at)}</span>}
                         <span className={ageClass(d)}>· {ageLabel(d)}</span>
-                        {Array.isArray(t.photos) && t.photos.length > 0 && <span>· 📎 {t.photos.length}</span>}
                       </div>
                     </button>
                   </div>
